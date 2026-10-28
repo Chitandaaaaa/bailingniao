@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>百灵鸟在五线谱上飞行 · 视觉设计样板 v1.0</title>
+<style>
+  :root{
+    --bg-sky-top:#16273F; --bg-sky-mid:#0D1A2C; --bg-horizon:#0A1220; --bg-floor:#060A12;
+    --lane-0:#FFD166; --lane-1:#FF8A5C; --lane-2:#F4F7FB; --lane-3:#63D9A6; --lane-4:#7FA8F0;
+    --perfect:#FFF4C8; --perfect-glow:#FFC64D; --good:#4FD1E8; --miss:#FF4D6D;
+    --text-hi:#EEF4FB; --text-mid:#A9BCD2; --text-lo:#6C819B; --text-gold:#FFE3A8;
+    --staff:#8FA6C4; --gold:#FFC64D; --feather:#FFD98A; --shard:#4A5A70;
+    --font-ui:"PingFang SC","HarmonyOS Sans SC","Source Han Sans SC","Noto Sans SC","Microsoft YaHei",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --font-music:"Songti SC","STSong","SimSun","Times New Roman",serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#05080E;color:var(--text-hi);font-family:var(--font-ui);padding:32px 24px 64px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1280px;margin:0 auto}
+  .board-head{border-bottom:1px solid rgba(168,196,230,.16);padding-bottom:20px;margin-bottom:28px}
+  .board-head h1{font-size:26px;font-weight:800;letter-spacing:.01em}
+  .board-head p{margin-top:8px;font-size:14px;line-height:1.7;color:var(--text-mid);max-width:760px}
+  .board-head .meta{margin-top:10px;font-size:12px;color:var(--text-lo);font-variant-numeric:tabular-nums}
+  h2.sec{font-size:13px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--text-lo);
+    margin:40px 0 14px;padding-bottom:8px;border-bottom:1px solid rgba(168,196,230,.12)}
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+  .card{background:rgba(16,26,43,.72);border:1px solid rgba(168,196,230,.14);border-radius:14px;padding:16px}
+  .card h3{font-size:13px;font-weight:700;letter-spacing:.02em;margin-bottom:12px;color:var(--text-hi)}
+  .card .cap{font-size:12px;line-height:1.65;color:var(--text-mid);margin-top:10px}
+  .stage-wrap{background:#05080E;border:1px solid rgba(168,196,230,.14);border-radius:14px;padding:10px;overflow:hidden}
+  .stage-wrap svg{display:block;width:100%;height:auto}
+  .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+  .sw{display:flex;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid rgba(168,196,230,.08)}
+  .sw:last-child{border-bottom:0}
+  .sw i{width:26px;height:26px;border-radius:7px;flex:none;display:block}
+  .sw b{font-size:12px;font-weight:600;flex:1}
+  .sw code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;color:var(--text-mid)}
+  .sw em{font-style:normal;font-size:11px;color:var(--text-lo);width:64px;text-align:right;flex:none}
+  .tsample{border-bottom:1px solid rgba(168,196,230,.08);padding:10px 0}
+  .tsample:last-child{border-bottom:0}
+  .tsample .lb{font-size:11px;color:var(--text-lo);letter-spacing:.12em;margin-bottom:4px}
+  .tsample .note{font-size:11px;color:var(--text-lo);margin-top:4px}
+  .demo{display:flex;align-items:center;justify-content:center;gap:18px;padding:14px 0;flex-wrap:wrap}
+  .demo .unit{text-align:center}
+  .demo .lb{font-size:11px;color:var(--text-lo);margin-top:8px}
+  .stage-lbl{font-size:12px;color:var(--text-lo);margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="board-head">
+    <h1>百灵鸟在五线谱上飞行 · 视觉设计样板</h1>
+    <p><b style="color:var(--text-gold)">墨蓝天穹里的一张发光总谱。</b>夜色的冷蓝是纸与天空，琥珀金的乐音是百灵鸟的羽光；五根垂直轨道即旋转 90° 的五线谱五根谱线，音符是骑在线上坠落的符头，判定线是乐谱上的指挥线。</p>
+    <div class="meta">基准画布 1200 × 800　·　判定线 y=560　·　轨道 x = 200 / 400 / 600 / 800 / 1000　·　音符生成 y=-50　·　单文件 HTML+CSS+SVG+JS，零外部依赖</div>
+    <div class="meta" style="color:#FFC64D">v1.1（对齐 interaction-spec v1.0）：判定线几何恒定 · 反馈文字移至判定线下方 judgeY+60 · 里程碑全部落入 judgeY+100~+156 里程碑带 · Combo 断裂不染红 · 唱名加序号 · 键帽 56/56/88/56/56 · 底部坐标相对 judgeY 推导</div>
+  </div>
+
+  <h2 class="sec">01　主舞台 mockup（游戏进行中 · 1200×800 等比）</h2>
+  <div class="stage-wrap">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#16273F"/><stop offset="42%" stop-color="#0D1A2C"/>
+        <stop offset="72%" stop-color="#0A1220"/><stop offset="100%" stop-color="#060A12"/>
+      </linearGradient>
+      <radialGradient id="warm" cx="50%" cy="100%" r="75%">
+        <stop offset="0" stop-color="#FFC46B" stop-opacity=".10"/><stop offset="60%" stop-color="#FFC46B" stop-opacity="0"/>
+      </radialGradient>
+      <radialGradient id="cool" cx="50%" cy="0%" r="60%">
+        <stop offset="0" stop-color="#78A0DC" stop-opacity=".14"/><stop offset="70%" stop-color="#78A0DC" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="staffFade" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#8FA6C4" stop-opacity=".10"/>
+        <stop offset="70%" stop-color="#8FA6C4" stop-opacity=".34"/>
+        <stop offset="100%" stop-color="#8FA6C4" stop-opacity=".18"/>
+      </linearGradient>
+      <linearGradient id="judgeLine" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#FFD79A" stop-opacity="0"/>
+        <stop offset="50%" stop-color="#FFD79A" stop-opacity="1"/>
+        <stop offset="100%" stop-color="#FFD79A" stop-opacity="0"/>
+      </linearGradient>
+      <filter id="soft" x="-60%" y="-60%" width="220%" height="220%">
+        <feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="soft2" x="-60%" y="-60%" width="220%" height="220%">
+        <feGaussianBlur stdDeviation="14" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="bigblur" x="-80%" y="-80%" width="260%" height="260%">
+        <feGaussianBlur stdDeviation="16"/>
+      </filter>
+      <linearGradient id="g0" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#FFE6AE"/><stop offset="55%" stop-color="#FFD166"/><stop offset="100%" stop-color="#D9A03A"/></linearGradient>
+      <linearGradient id="g1" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#FFC3A5"/><stop offset="55%" stop-color="#FF8A5C"/><stop offset="100%" stop-color="#D9653A"/></linearGradient>
+      <linearGradient id="g2" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="55%" stop-color="#F4F7FB"/><stop offset="100%" stop-color="#C3CFDE"/></linearGradient>
+      <linearGradient id="g3" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#A8EFD1"/><stop offset="55%" stop-color="#63D9A6"/><stop offset="100%" stop-color="#3EA67D"/></linearGradient>
+      <linearGradient id="g4" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="#B9D3FA"/><stop offset="55%" stop-color="#7FA8F0"/><stop offset="100%" stop-color="#4F7CC9"/></linearGradient>
+      <linearGradient id="prog" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#FFD166"/><stop offset="25%" stop-color="#FF8A5C"/><stop offset="50%" stop-color="#F4F7FB"/>
+        <stop offset="75%" stop-color="#63D9A6"/><stop offset="100%" stop-color="#7FA8F0"/>
+      </linearGradient>
+      <path id="nh" d="M -23,0 C -23,-11 -12,-18 2,-16 C 16,-14 23,-6 23,2 C 23,12 12,18 -2,16 C -16,14 -23,9 -23,0 Z"/>
+      <path id="stem" d="M 17,-9 L 17,-35" stroke-width="3.4" stroke-linecap="round" fill="none"/>
+      <path id="feather" d="M0,0 C6,-4 14,-4 20,0 C14,3 6,3 0,0 Z"/>
+      <path id="star12" d="M34,0 L8.71,2.33 L29.44,17 L6.36,6.36 L17,29.44 L2.33,8.71 L0,34 L-2.33,8.71 L-17,29.44 L-6.36,6.36 L-29.44,17 L-8.71,2.33 L-34,0 L-8.71,-2.33 L-29.44,-17 L-6.36,-6.36 L-17,-29.44 L-2.33,-8.71 L0,-34 L2.33,-8.71 L17,-29.44 L6.36,-6.36 L29.44,-17 L8.71,-2.33 Z"/>
+      <path id="star8" d="M24,0 L7.39,3.06 L16.97,16.97 L3.06,7.39 L0,24 L-3.06,7.39 L-16.97,16.97 L-7.39,3.06 L-24,0 L-7.39,-3.06 L-16.97,-16.97 L-3.06,-7.39 L0,-24 L3.06,-7.39 L16.97,-16.97 L7.39,-3.06 Z"/>
+      <g id="noteg0"><use href="#nh" fill="url(#g0)"/><use href="#stem" stroke="#FFD166"/><ellipse cx="-8" cy="-6" rx="9" ry="4" fill="#fff" opacity=".45" transform="rotate(-20)"/></g>
+      <g id="noteg1"><use href="#nh" fill="url(#g1)"/><use href="#stem" stroke="#FF8A5C"/><ellipse cx="-8" cy="-6" rx="9" ry="4" fill="#fff" opacity=".45" transform="rotate(-20)"/></g>
+      <g id="noteg2"><use href="#nh" fill="url(#g2)"/><use href="#stem" stroke="#F4F7FB"/><ellipse cx="-8" cy="-6" rx="9" ry="4" fill="#fff" opacity=".6" transform="rotate(-20)"/></g>
+      <g id="noteg3"><use href="#nh" fill="url(#g3)"/><use href="#stem" stroke="#63D9A6"/><ellipse cx="-8" cy="-6" rx="9" ry="4" fill="#fff" opacity=".45" transform="rotate(-20)"/></g>
+      <g id="noteg4"><use href="#nh" fill="url(#g4)"/><use href="#stem" stroke="#7FA8F0"/><ellipse cx="-8" cy="-6" rx="9" ry="4" fill="#fff" opacity=".45" transform="rotate(-20)"/></g>
+    </defs>
+
+    <rect width="1200" height="800" fill="url(#bg)"/>
+    <rect width="1200" height="800" fill="url(#warm)"/>
+    <rect width="1200" height="800" fill="url(#cool)"/>
+
+    <g fill="#C7DCF2">
+      <circle cx="62" cy="120" r="1.1" opacity=".35"/><circle cx="180" cy="60" r=".8" opacity=".22"/>
+      <circle cx="310" cy="180" r="1.2" opacity=".30"/><circle cx="470" cy="90" r=".9" opacity=".25"/>
+      <circle cx="520" cy="240" r="1.1" opacity=".30"/><circle cx="640" cy="140" r=".8" opacity=".22"/>
+      <circle cx="735" cy="70" r="1.2" opacity=".32"/><circle cx="860" cy="200" r=".9" opacity=".24"/>
+      <circle cx="960" cy="120" r="1.1" opacity=".30"/><circle cx="1105" cy="70" r=".9" opacity=".26"/>
+      <circle cx="1150" cy="250" r="1.2" opacity=".30"/><circle cx="120" cy="300" r="1" opacity=".22"/>
+      <circle cx="380" cy="330" r=".9" opacity=".26"/><circle cx="690" cy="380" r="1" opacity=".2"/>
+      <circle cx="1000" cy="330" r=".9" opacity=".24"/><circle cx="60" cy="420" r="1" opacity=".22"/>
+      <circle cx="1130" cy="430" r="1" opacity=".26"/><circle cx="260" cy="430" r=".8" opacity=".2"/>
+      <circle cx="820" cy="460" r="1" opacity=".2"/><circle cx="420" cy="500" r=".9" opacity=".2"/>
+    </g>
+
+    <g stroke="#8FA6C4" stroke-opacity=".10" stroke-width="1">
+      <line x1="0" y1="120" x2="1200" y2="120"/><line x1="0" y1="260" x2="1200" y2="260"/>
+      <line x1="0" y1="400" x2="1200" y2="400"/><line x1="0" y1="540" x2="1200" y2="540"/>
+    </g>
+
+    <g fill="url(#staffFade)">
+      <rect x="199.5" y="0" width="1" height="800"/><rect x="399.5" y="0" width="1" height="800"/>
+      <rect x="599.5" y="0" width="1" height="800"/><rect x="799.5" y="0" width="1" height="800"/>
+      <rect x="999.5" y="0" width="1" height="800"/>
+    </g>
+    <g stroke="#8FA6C4" stroke-opacity=".30">
+      <line x1="140" y1="0" x2="140" y2="800" stroke-width="1.5"/>
+      <line x1="146" y1="0" x2="146" y2="800" stroke-width="1"/>
+      <line x1="1060" y1="0" x2="1060" y2="800" stroke-width="1.5"/>
+    </g>
+
+    <g stroke="#A9BCD2" stroke-opacity=".22" stroke-width="1">
+      <line x1="140" y1="240" x2="1060" y2="240"/>
+      <line x1="140" y1="240" x2="140" y2="252"/><line x1="1060" y1="240" x2="1060" y2="252"/>
+    </g>
+    <path d="M600,226 l4,6 l-4,6 l-4,-6 Z" fill="#FFC64D" opacity=".6"/>
+
+    <g stroke="#FFC64D" stroke-opacity=".22" stroke-width="1" stroke-dasharray="3 9">
+      <line x1="140" y1="530" x2="1060" y2="530"/><line x1="140" y1="590" x2="1060" y2="590"/>
+    </g>
+    <text x="150" y="524" font-family="PingFang SC, system-ui, sans-serif" font-size="10" fill="#FFC64D" opacity=".55" letter-spacing="1">PERFECT</text>
+
+    <g>
+      <rect x="560" y="546" width="80" height="28" fill="#FFD79A" opacity=".16" filter="url(#bigblur)"/>
+      <rect x="580" y="555" width="40" height="10" rx="5" fill="#FFD79A" opacity=".9" filter="url(#soft)"/>
+      <line x1="140" y1="560" x2="1060" y2="560" stroke="#A9BCD2" stroke-opacity=".22"/>
+      <rect x="560" y="555" width="80" height="10" rx="5" fill="#F4F7FB" opacity=".30"/>
+    </g>
+
+    <g>
+      <rect x="156" y="555" width="88" height="10" rx="5" fill="#FFD166" opacity=".30"/><rect x="156" y="555" width="88" height="10" rx="5" fill="none" stroke="#FFD166" stroke-opacity=".55"/>
+      <rect x="354" y="554.5" width="92" height="11" rx="5" fill="#FF8A5C" opacity=".30"/><rect x="354" y="554.5" width="92" height="11" rx="5" fill="none" stroke="#FF8A5C" stroke-opacity=".55"/>
+      <rect x="548" y="554" width="104" height="12" rx="6" fill="#F4F7FB" opacity=".34"/><rect x="548" y="554" width="104" height="12" rx="6" fill="none" stroke="#F4F7FB" stroke-opacity=".6"/>
+      <rect x="754" y="554.5" width="92" height="11" rx="5" fill="#63D9A6" opacity=".30"/><rect x="754" y="554.5" width="92" height="11" rx="5" fill="none" stroke="#63D9A6" stroke-opacity=".55"/>
+      <rect x="956" y="555" width="88" height="10" rx="5" fill="#7FA8F0" opacity=".30"/><rect x="956" y="555" width="88" height="10" rx="5" fill="none" stroke="#7FA8F0" stroke-opacity=".55"/>
+    </g>
+
+    <g font-family="PingFang SC, system-ui, sans-serif" font-weight="700" font-size="10" fill="#6C819B" opacity=".4" text-anchor="middle">
+      <text x="200" y="576">1</text><text x="400" y="576">2</text><text x="600" y="576">3</text>
+      <text x="800" y="576">4</text><text x="1000" y="576">5</text>
+    </g>
+    <g font-family="Songti SC, STSong, Times New Roman, serif" font-size="11" fill="#6C819B" opacity=".8" text-anchor="middle">
+      <text x="200" y="590">do</text><text x="400" y="590">re</text><text x="600" y="590">mi</text>
+      <text x="800" y="590">fa</text><text x="1000" y="590">sol</text>
+    </g>
+
+    <g opacity=".95">
+      <use href="#noteg0" transform="translate(200,180)"/>
+      <use href="#noteg3" transform="translate(800,140)"/>
+      <use href="#noteg4" transform="translate(1000,300)"/>
+      <use href="#noteg1" transform="translate(400,400)"/>
+      <use href="#noteg0" transform="translate(200,430)"/>
+      <use href="#noteg4" transform="translate(1000,480)"/>
+      <use href="#noteg2" transform="translate(600,240)"/>
+    </g>
+
+    <g transform="translate(600,560)">
+      <circle r="56" fill="none" stroke="#FFC64D" stroke-width="2" opacity=".45"/>
+      <circle r="34" fill="none" stroke="#FFF4C8" stroke-width="1.5" opacity=".6"/>
+      <use href="#star12" fill="#FFF4C8" opacity=".95" filter="url(#soft2)"/>
+      <circle r="7" fill="#FFFFFF"/>
+    </g>
+    <g fill="#FFD98A" opacity=".9">
+      <use href="#feather" transform="translate(646,540) rotate(24)"/>
+      <use href="#feather" transform="translate(578,548) rotate(-38)"/>
+      <use href="#feather" transform="translate(668,566) rotate(72)"/>
+      <use href="#feather" transform="translate(556,524) rotate(-15)"/>
+      <use href="#feather" transform="translate(632,584) rotate(140)"/>
+    </g>
+    <line x1="600" y1="566" x2="600" y2="600" stroke="#F4F7FB" stroke-opacity=".3" stroke-width="1"/>
+    <text x="600" y="620" font-family="PingFang SC, system-ui, sans-serif" font-size="22" font-weight="800" fill="#FFF4C8"
+          text-anchor="middle" transform="rotate(-6 600 620)" style="paint-order:stroke" stroke="#fff" stroke-opacity=".55" stroke-width="2">PERFECT</text>
+    <text x="676" y="620" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#FFD166" text-anchor="middle" class="num">+120</text>
+
+    <g font-family="PingFang SC, system-ui, sans-serif">
+      <text x="32" y="30" font-size="11" font-weight="700" letter-spacing="2.6" fill="#6C819B">SCORE</text>
+      <text x="32" y="70" font-size="44" font-weight="700" fill="#EEF4FB" class="num" letter-spacing="1">128,450</text>
+      <text x="600" y="34" font-size="14" font-weight="600" fill="#A9BCD2" text-anchor="middle">Skylark over Five Lines</text>
+      <rect x="360" y="50" width="480" height="4" rx="2" fill="#fff" opacity=".10"/>
+      <rect x="360" y="50" width="312" height="4" rx="2" fill="url(#prog)"/>
+      <circle cx="672" cy="52" r="4" fill="#fff"/>
+      <g>
+        <circle cx="1136" cy="43" r="26" fill="none" stroke="#FFD166" stroke-width="2" opacity=".85"/>
+        <path d="M1136,17 A26,26 0 1,1 1112.6,50" fill="none" stroke="#FFD166" stroke-width="2" opacity=".9"/>
+        <text x="1136" y="52" font-size="24" font-weight="800" fill="#FFD166" text-anchor="middle">S</text>
+      </g>
+      <text x="1168" y="88" font-size="14" font-weight="600" fill="#A9BCD2" text-anchor="end" class="num">98.4% ACCURACY</text>
+
+      <text x="600" y="650" font-size="11" font-weight="700" letter-spacing="3.6" fill="#6C819B" text-anchor="middle">COMBO</text>
+      <text x="600" y="712" font-size="56" font-weight="800" fill="#FFD166" text-anchor="middle" class="num" style="filter:drop-shadow(0 0 6px rgba(255,196,77,.55))">42</text>
+
+      <g transform="translate(416,728)">
+        <g><rect width="56" height="56" rx="12" fill="none" stroke="#FFD166" stroke-opacity=".55"/><path d="M38,22 L22,28 L38,34 Z" fill="#FFD166"/><text x="6" y="14" font-size="10" font-weight="700" fill="#6C819B" class="num">1</text></g>
+        <g transform="translate(70,0)"><rect width="56" height="56" rx="12" fill="none" stroke="#FF8A5C" stroke-opacity=".55"/><path d="M28,18 L34,26 L22,26 Z" fill="#FF8A5C"/><text x="6" y="14" font-size="10" font-weight="700" fill="#6C819B" class="num">2</text></g>
+        <g transform="translate(140,0)"><rect width="88" height="56" rx="12" fill="none" stroke="#F4F7FB" stroke-opacity=".6"/><rect x="28" y="26" width="32" height="4" rx="2" fill="#F4F7FB"/><text x="6" y="14" font-size="10" font-weight="700" fill="#6C819B" class="num">3</text></g>
+        <g transform="translate(242,0)"><rect width="56" height="56" rx="12" fill="none" stroke="#63D9A6" stroke-opacity=".55"/><path d="M28,38 L34,30 L22,30 Z" fill="#63D9A6"/><text x="6" y="14" font-size="10" font-weight="700" fill="#6C819B" class="num">4</text></g>
+        <g transform="translate(312,0)"><rect width="56" height="56" rx="12" fill="none" stroke="#7FA8F0" stroke-opacity=".55"/><path d="M18,22 L34,28 L18,34 Z" fill="#7FA8F0"/><text x="6" y="14" font-size="10" font-weight="700" fill="#6C819B" class="num">5</text></g>
+      </g>
+
+      <g transform="translate(1120,726)" fill="none" stroke="#A9BCD2" stroke-width="2.4" stroke-linecap="round">
+        <rect x="2" y="8" width="16" height="28" rx="3"/><line x1="8" y1="16" x2="8" y2="28"/><line x1="14" y1="16" x2="14" y2="28"/>
+      </g>
+    </g>
+  </svg>
+  </div>
+  <p class="stage-lbl">图注：判定线 y=560 由「通栏细线 + 5 个落点垫 + 中心指挥棒高光」三层组成；PERFECT 判定窗以 y=530 / 590 虚线明示（±30）。中央轨道（空格）为象牙白主角轨，落点垫加宽至 104×12。</p>
+
+  <h2 class="sec">02　色彩系统</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h3>轨道色（x = 200 / 400 / 600 / 800 / 1000）</h3>
+      <div class="sw"><i style="background:#FFD166"></i><b>轨道 0　← 琥珀金</b><code>#FFD166</code><em>L* 79</em></div>
+      <div class="sw"><i style="background:#FF8A5C"></i><b>轨道 1　↑ 落日橙</b><code>#FF8A5C</code><em>L* 65</em></div>
+      <div class="sw"><i style="background:#F4F7FB"></i><b>轨道 2　空格 象牙白（主角）</b><code>#F4F7FB</code><em>L* 96</em></div>
+      <div class="sw"><i style="background:#63D9A6"></i><b>轨道 3　↓ 薄荷绿</b><code>#63D9A6</code><em>L* 78</em></div>
+      <div class="sw"><i style="background:#7FA8F0"></i><b>轨道 4　→ 晴空蓝</b><code>#7FA8F0</code><em>L* 67</em></div>
+      <p class="cap">相邻轨道色相间隔 ≥ 36°，亮度呈「2 最亮 → 0 → 3 → 4 → 1」阶梯；禁止红黄绿蓝紫高饱和等差色环。</p>
+    </div>
+    <div class="card">
+      <h3>判定 / 反馈 / 文字</h3>
+      <div class="sw"><i style="background:#FFF4C8"></i><b>PERFECT 芯 / 光晕 #FFC64D</b><code>#FFF4C8</code><em>12 芒星</em></div>
+      <div class="sw"><i style="background:#4FD1E8"></i><b>GOOD</b><code>#4FD1E8</code><em>8 芒星</em></div>
+      <div class="sw"><i style="background:#FF4D6D"></i><b>MISS</b><code>#FF4D6D</code><em>碎裂</em></div>
+      <div class="sw"><i style="background:#FFD98A"></i><b>羽毛粒子</b><code>#FFD98A</code><em>—</em></div>
+      <div class="sw"><i style="background:#4A5A70"></i><b>MISS 碎屑</b><code>#4A5A70</code><em>—</em></div>
+      <div class="sw"><i style="background:#EEF4FB"></i><b>主要文字 15.2:1</b><code>#EEF4FB</code><em>—</em></div>
+      <div class="sw"><i style="background:#A9BCD2"></i><b>次要文字 8.6:1</b><code>#A9BCD2</code><em>—</em></div>
+      <div class="sw"><i style="background:#6C819B"></i><b>弱文字 4.6:1</b><code>#6C819B</code><em>—</em></div>
+    </div>
+    <div class="card">
+      <h3>底色 / 材质</h3>
+      <div class="sw"><i style="background:#16273F"></i><b>天穹顶</b><code>#16273F</code><em>y=0</em></div>
+      <div class="sw"><i style="background:#0D1A2C"></i><b>天穹中</b><code>#0D1A2C</code><em>y=340</em></div>
+      <div class="sw"><i style="background:#0A1220"></i><b>地平线</b><code>#0A1220</code><em>y=560</em></div>
+      <div class="sw"><i style="background:#060A12"></i><b>底部已结算区</b><code>#060A12</code><em>y=800</em></div>
+      <div class="sw"><i style="background:#8FA6C4"></i><b>谱线</b><code>#8FA6C4</code><em>α .30</em></div>
+      <div class="sw"><i style="background:rgba(10,18,32,.78);border:1px solid rgba(168,196,230,.16)"></i><b>面板</b><code>rgba(10,18,32,.78)</code><em>—</em></div>
+      <p class="cap">纸纹颗粒：SVG feTurbulence baseFrequency .8 / numOctaves 3，opacity .035，overlay 混合。</p>
+    </div>
+  </div>
+
+  <h2 class="sec">03　音符造型（同形状不同色 · 3 种节奏型变体）</h2>
+  <div class="grid g3">
+    <div class="card">
+      <h3>标准 note</h3>
+      <div class="demo"><svg width="120" height="96" viewBox="-60 -60 120 96">
+        <ellipse cx="0" cy="6" rx="28" ry="16" fill="#FFD166" opacity=".22" filter="url(#bigblur)"/>
+        <use href="#noteg0" transform="translate(0,0)"/>
+      </svg></div>
+      <p class="cap">符头 path：<code style="font-size:11px">M-23,0 C-23,-11 -12,-18 2,-16 C16,-14 23,-6 23,2 C23,12 12,18 -2,16 C-16,14 -23,9 -23,0 Z</code>，旋转 -20°，骑在谱线腰线上；符干 26px；左上玻璃高光。</p>
+    </div>
+    <div class="card">
+      <h3>强音 accent</h3>
+      <div class="demo"><svg width="120" height="96" viewBox="-60 -60 120 96">
+        <ellipse cx="0" cy="6" rx="28" ry="16" fill="#FF8A5C" opacity=".22" filter="url(#bigblur)"/>
+        <use href="#noteg1" transform="translate(0,0)"/>
+        <path d="M17,-35 C28,-33 32,-24 27,-15 C26,-23 22,-27 17,-27 Z" fill="#FFB694"/>
+      </svg></div>
+      <p class="cap">符干顶端向左弯出小旗，旗色 = 轨道色提亮 15%。强音音符外发光 blur 提升到 10px。</p>
+    </div>
+    <div class="card">
+      <h3>长音 hold</h3>
+      <div class="demo"><svg width="120" height="96" viewBox="-60 -60 120 96">
+        <rect x="-3" y="-2" width="6" height="88" fill="#63D9A6" opacity=".35"/>
+        <use href="#noteg3" transform="translate(0,0)"/>
+        <rect x="-8" y="80" width="16" height="10" rx="3" fill="#63D9A6" opacity=".8"/>
+      </svg></div>
+      <p class="cap">符头 + 6px 竖直光带（轨道色 40% → 透明），判定线处加小方块锁扣。</p>
+    </div>
+  </div>
+  <p class="stage-lbl">材质三层：① 135° 线性渐变（轨道色 → 提亮 22% → 压暗 12%）② 左上玻璃高光椭圆 rgba(255,255,255,.55) ③ 外发光副本 blur 6px 加色混合。下半部保留 1px 深色描边，保证在爆闪时仍有轮廓。</p>
+
+  <h2 class="sec">04　命中特效分级（形状必须可辨）</h2>
+  <div class="grid g3">
+    <div class="card">
+      <h3 style="color:#FFF4C8">PERFECT</h3>
+      <div class="demo"><svg width="150" height="110" viewBox="-75 -55 150 110">
+        <circle r="44" fill="none" stroke="#FFC64D" stroke-width="2" opacity=".5"/>
+        <circle r="26" fill="none" stroke="#FFF4C8" stroke-width="1.4" opacity=".7"/>
+        <use href="#star12" fill="#FFF4C8" filter="url(#soft2)"/>
+        <circle r="5" fill="#fff"/>
+      </svg></div>
+      <p class="cap">12 芒星 + 2 圈涟漪 + 8 片羽毛 + 判定线白闪 60ms。文字 22/800 白金 + 2px 白描边，**判定线下方 judgeY+60**，上飘 24px / 360ms；`+120` 同基线右偏 56px。</p>
+    </div>
+    <div class="card">
+      <h3 style="color:#4FD1E8">GOOD</h3>
+      <div class="demo"><svg width="150" height="110" viewBox="-75 -55 150 110">
+        <circle r="30" fill="none" stroke="#4FD1E8" stroke-width="1.6" opacity=".6"/>
+        <use href="#star8" fill="#4FD1E8" opacity=".9"/>
+      </svg></div>
+      <p class="cap">8 芒星 + 1 圈涟漪 + 4 片小羽毛。文字 18/600 青 + 深色投影，**判定线下方 judgeY+60**，上飘 18px / 300ms。</p>
+    </div>
+    <div class="card">
+      <h3 style="color:#FF4D6D">MISS</h3>
+      <div class="demo"><svg width="150" height="110" viewBox="-75 -55 150 110">
+        <g fill="#4A5A70">
+          <path d="M-26,-4 l10,-8 l7,9 l-12,6 Z"/><path d="M2,-12 l12,-3 l3,11 l-13,3 Z"/>
+          <path d="M18,2 l10,4 l-5,10 l-10,-6 Z"/><path d="M-6,8 l8,6 l-6,9 l-8,-7 Z"/>
+          <path d="M-34,10 l8,5 l-6,8 l-7,-6 Z"/>
+        </g>
+        <rect x="-46" y="34" width="92" height="4" rx="2" fill="#FF4D6D" opacity=".75"/>
+      </svg></div>
+      <p class="cap">无爆闪。音符碎裂成 7 片灰色碎屑下坠；判定线该轨道段玫红横条闪 2 次（140ms）。文字 18/600 玫红，**判定线下方 judgeY+60**，上飘 12px / 280ms。</p>
+    </div>
+  </div>
+
+  <h2 class="sec">05　Combo 里程碑四档</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h3>10 COMBO　屏震 4px / 180ms</h3>
+      <div class="demo"><svg width="260" height="90" viewBox="0 0 260 90">
+        <line x1="10" y1="45" x2="250" y2="45" stroke="#FFC64D" stroke-width="1" opacity=".4"/>
+        <line x1="60" y1="36" x2="200" y2="36" stroke="#FFC64D" stroke-width="2" opacity=".9"/>
+        <text x="130" y="52" font-size="22" font-weight="800" fill="#FFD166" text-anchor="middle" font-family="PingFang SC, system-ui, sans-serif">10 COMBO</text>
+        <g fill="#FFD98A" opacity=".8"><use href="#feather" transform="translate(70,60) rotate(-20)"/><use href="#feather" transform="translate(190,58) rotate(35)"/></g>
+      </svg></div>
+      <p class="cap">取消独立横幅 ——「10」本身就是屏幕上最大的 Combo 数字。改为：Combo 数字加 4px 金色 glow 并 scale 1→1.15→1；判定线本体加亮（不改几何）；12 片羽毛只在判定线处上飘。</p>
+    </div>
+    <div class="card">
+      <h3>30 COMBO　屏震 7px / 350ms</h3>
+      <div class="demo"><svg width="260" height="90" viewBox="0 0 260 90">
+        <circle cx="130" cy="45" r="42" fill="none" stroke="#FFC64D" stroke-width="1.5" opacity=".65"/>
+        <circle cx="130" cy="45" r="30" fill="none" stroke="#FFF4C8" stroke-width="1" opacity=".35"/>
+        <text x="130" y="45" font-size="40" font-weight="800" fill="#FFD166" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif">30</text>
+        <text x="130" y="62" font-size="11" font-weight="700" fill="#FFD166" text-anchor="middle" letter-spacing="3" font-family="PingFang SC, system-ui, sans-serif">CHAIN</text>
+      </svg></div>
+      <p class="cap">金色扁环（rx 0→560 / ry 0→26，1.2px，opacity ≤.28，可穿透）+ 四角金色内阴影 + 判定线只加亮**不位移**；「30 / CHAIN」落在里程碑带右段 x900–1160。</p>
+    </div>
+    <div class="card">
+      <h3>50 COMBO　屏震 9px / 500ms</h3>
+      <div class="demo"><svg width="260" height="90" viewBox="0 0 260 90">
+        <rect x="30" y="38" width="200" height="4" rx="2" fill="#FFD166"/>
+        <rect x="30" y="48" width="200" height="4" rx="2" fill="#FFD166" opacity=".55"/>
+        <ellipse cx="130" cy="45" rx="92" ry="30" fill="#FFD26A" opacity=".14"/>
+        <text x="130" y="56" font-size="44" font-weight="800" fill="#FFD166" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif">50</text>
+        <g fill="#FFD98A" opacity=".85"><use href="#feather" transform="translate(52,60) rotate(-30)"/><use href="#feather" transform="translate(100,66) rotate(18)"/><use href="#feather" transform="translate(160,62) rotate(-8)"/><use href="#feather" transform="translate(206,58) rotate(42)"/></g>
+      </svg></div>
+      <p class="cap">羽毛风暴 24 片自 y=800 上飘，到 judgeY−40 处触发涟漪后消失（不在通道内持续飘过）；判定线只加亮**不加几何**；分数 scale 1→1.12→1。「50 / CHAIN」落在里程碑带左段 x40–300。</p>
+    </div>
+    <div class="card">
+      <h3>100 COMBO　屏震 12px / 1.2s　完美通关</h3>
+      <div class="demo"><svg width="260" height="90" viewBox="0 0 260 90">
+        <circle cx="130" cy="45" r="38" fill="none" stroke="#FFC64D" stroke-width="2"/>
+        <circle cx="130" cy="45" r="42" fill="none" stroke="#8A6A28" stroke-width="1"/>
+        <text x="130" y="48" font-size="30" font-weight="800" fill="#FFF4C8" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, sans-serif">100</text>
+        <text x="130" y="62" font-size="9" font-weight="700" fill="#FFD166" text-anchor="middle" letter-spacing="2" font-family="PingFang SC, system-ui, sans-serif">PERFECT CHAIN</text>
+        <g stroke="#FFD166" stroke-width="1.4" opacity=".75">
+          <line x1="70" y1="45" x2="26" y2="45"/><line x1="190" y1="45" x2="234" y2="45"/>
+        </g>
+        <g fill="#FFD98A" opacity=".85"><use href="#feather" transform="translate(40,70) rotate(-24)"/><use href="#feather" transform="translate(220,72) rotate(30)"/></g>
+      </svg></div>
+      <p class="cap">全屏白闪 #FFF8E7 + 5 束短光柱（每轨向上 160px，260ms 衰减）+ 羽毛向上喷发 120 片 + 横幅徽章 x380–820（y judgeY+100~+156，Combo 数字让位）。</p>
+    </div>
+  </div>
+
+  <h2 class="sec">06　字体与排版阶梯</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h3>层级样张</h3>
+      <div class="tsample"><div class="lb">t-display-1 · 800 112px · 结算评级</div><div style="font:800 56px/1 var(--font-num);color:#FFD166">S</div></div>
+      <div class="tsample"><div class="lb">t-display-2 · 800 56px · 主标题</div><div style="font:800 30px/1.15 var(--font-ui);color:#EEF4FB">百灵鸟在<span style="color:#FFD166">五线谱</span>上飞行</div></div>
+      <div class="tsample"><div class="lb">t-display-3 · 800 56px · COMBO（tabular-nums）</div><div class="num" style="font:800 40px/1 var(--font-num);color:#FFD166">42</div></div>
+      <div class="tsample"><div class="lb">t-score · 700 44px · 分数（tabular-nums）</div><div class="num" style="font:700 32px/1 var(--font-num);color:#EEF4FB">128,450</div></div>
+      <div class="tsample"><div class="lb">t-label · 700 11px · ls .18em</div><div style="font:700 11px/1.2 var(--font-ui);letter-spacing:.18em;color:#6C819B">SCORE</div></div>
+      <div class="tsample"><div class="lb">t-micro · serif 11px · 谱号 / 拍号 / 唱名</div><div style="font:500 13px/1.2 var(--font-music);color:#A9BCD2">do · re · mi · fa · sol　4/4</div></div>
+    </div>
+    <div class="card">
+      <h3>字体栈与规则</h3>
+      <div class="tsample">
+        <div class="lb">UI</div>
+        <div style="font-size:12px;color:#A9BCD2;line-height:1.7">"PingFang SC", "HarmonyOS Sans SC", "Source Han Sans SC", "Noto Sans SC", "Microsoft YaHei", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif</div>
+      </div>
+      <div class="tsample">
+        <div class="lb">数字（必须 tabular-nums）</div>
+        <div style="font-size:12px;color:#A9BCD2;line-height:1.7">system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif<br>font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;</div>
+      </div>
+      <div class="tsample">
+        <div class="lb">乐谱（仅用于谱号/拍号/唱名/装饰）</div>
+        <div style="font-size:12px;color:#A9BCD2;line-height:1.7">"Songti SC", "STSong", "SimSun", "Times New Roman", serif</div>
+      </div>
+      <div class="tsample">
+        <div class="lb">硬规则</div>
+        <div style="font-size:12px;color:#A9BCD2;line-height:1.9">
+          · 字重只用 400 / 600 / 800 三档<br>
+          · 所有变动数字启用 tabular-nums（否则读数抖动）<br>
+          · 全大写标签统一 ls .18em；中文标题不加字距<br>
+          · 反馈文字 2px 白描边或深色投影，压在音符上仍可读<br>
+          · 数字与单位之间空 4px
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="sec">07　HUD 坐标图（1200×800）</h2>
+  <div class="stage-wrap">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg" font-family="PingFang SC, system-ui, sans-serif">
+    <rect width="1200" height="800" fill="#0B1422"/>
+    <g stroke="#3E5A80" stroke-width="1" opacity=".5">
+      <line x1="0" y1="72" x2="1200" y2="72"/><line x1="0" y1="560" x2="1200" y2="560"/>
+      <line x1="32" y1="0" x2="32" y2="800" stroke-dasharray="4 6"/><line x1="1168" y1="0" x2="1168" y2="800" stroke-dasharray="4 6"/>
+      <line x1="200" y1="0" x2="200" y2="800" stroke-dasharray="4 6"/><line x1="400" y1="0" x2="400" y2="800" stroke-dasharray="4 6"/>
+      <line x1="600" y1="0" x2="600" y2="800" stroke-dasharray="4 6"/><line x1="800" y1="0" x2="800" y2="800" stroke-dasharray="4 6"/>
+      <line x1="1000" y1="0" x2="1000" y2="800" stroke-dasharray="4 6"/>
+    </g>
+    <rect x="172" y="0" width="856" height="560" fill="#4FD1E8" opacity=".07"/>
+    <rect x="172" y="0" width="856" height="560" fill="none" stroke="#4FD1E8" stroke-opacity=".45" stroke-dasharray="6 6"/>
+    <g fill="none" stroke="#FFD166" stroke-opacity=".5" stroke-dasharray="5 5">
+      <rect x="16" y="16" width="200" height="58" rx="6"/><rect x="360" y="16" width="480" height="46" rx="6"/>
+      <rect x="1104" y="14" width="64" height="58" rx="6"/><rect x="440" y="638" width="320" height="78" rx="6"/>
+      <rect x="416" y="728" width="368" height="56" rx="6"/><rect x="1104" y="726" width="64" height="58" rx="6"/>
+      <rect x="16" y="596" width="160" height="28" rx="6"/>
+      <rect x="40" y="660" width="260" height="56" rx="6"/><rect x="900" y="660" width="260" height="56" rx="6"/>
+    </g>
+    <g fill="#FFD166" font-size="12">
+      <text x="22" y="12">顶栏 y0–72：SCORE 标签(32,18) / 分数(32,32–74)</text>
+      <text x="366" y="12">曲名(600,20) + 进度条 x360–840 y52 h4 + 滑块</text>
+      <text x="1104" y="10">评级徽章 r26 + 准确率(1168,78)</text>
+      <text x="446" y="634">COMBO 标签(600,650) + 数字(600,660–716)</text>
+      <text x="420" y="800">键位图例 56/56/88/56/56 间距 14 起点 x=416</text>
+      <text x="1104" y="722">暂停 48×48</text>
+      <text x="22" y="592">判定文字 基线 judgeY+60=620（同轴居中，不外扩）</text>
+      <text x="46" y="658">50 COMBO 里程碑带 x40–300</text>
+      <text x="906" y="658">30 COMBO 里程碑带 x900–1160</text>
+    </g>
+    <text x="22" y="556" fill="#4FD1E8" font-size="11">判定线 y=560（几何恒定）</text>
+    <text x="22" y="34" fill="#4FD1E8" font-size="11">顶栏 y=72</text>
+    <text x="1064" y="752" fill="#4FD1E8" font-size="11" text-anchor="end">右侧边距 x=1168</text>
+    <text x="604" y="150" fill="#6C819B" font-size="11">轨道 x = 200 / 400 / 600 / 800 / 1000</text>
+    <text x="180" y="20" fill="#4FD1E8" font-size="12">下落通道保护区 x∈[172,1028] y∈[0,560]：禁止底板 / 文字块 / 持续 &gt;200ms 的元素</text>
+    <text x="386" y="678" fill="#FFD166" font-size="12">100 COMBO 横幅徽章 x380–820（Combo 数字让位）</text>
+    <text x="22" y="778" fill="#6C819B" font-size="11">里程碑带 judgeY+100 ~ +156 = 660–716（5 档互斥切换）</text>
+  </svg>
+  </div>
+  <p class="stage-lbl">开始页：标题(600,286) / 鸟剪影(470–730,120–270) / 键帽图例(416–784,420–484) / 按空格开始(600,528)。暂停面板(320–880,268–532)，三按钮 继续(340–500) / 重新开始(520–680) / 返回标题(700–860)，返回标题带 3 秒二次确认倒计时。结算面板(240–960,140–660)，评级徽章圆心(600,244) r72，统计网格列 360/600/840，行 430/500，按钮 y560–608。</p>
+
+  <h2 class="sec">08　反例清单（出现即判为不精致）</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h3>音符与谱面</h3>
+      <p class="cap" style="font-size:13px;line-height:1.9">
+        ① 纯色方块音符，无符头造型 / 渐变 / 高光<br>
+        ② 音符色与背景近似（深蓝音符落深蓝底）<br>
+        ③ 5 轨做成红黄绿蓝紫高饱和等差色环<br>
+        ④ 水平五线谱去对应垂直轨道（除非背景网格且 α≤.18）<br>
+        ⑤ 判定线仅 1px 实线，无落点垫无辉光<br>
+        ⑥ 判定窗口 ±30 / ±65 完全不可见<br>
+        ⑦ 音符穿过判定线不消失或消失太晚<br>
+        ⑧ 音符在 y=-50 硬出现，无渐隐入场<br>
+        ⑨ 小节线与音符不同速，时间感崩塌
+      </p>
+    </div>
+    <div class="card">
+      <h3>反馈 · 排版 · 质感</h3>
+      <p class="cap" style="font-size:13px;line-height:1.9">
+        ⑩ 命中无任何反馈（按键无光柱 / 轨道高亮）<br>
+        ⑪ 每次命中都震屏<br>
+        ⑫ 粒子用圆形白光点 200 个（丢掉羽毛识别点）<br>
+        ⑬ GOOD 与 MISS 仅靠颜色区分，无形状差异<br>
+        ⑭ 里程碑特效被音符盖住（层级错）<br>
+        ⑮ 赛博朋克紫粉渐变模板<br>
+        ⑯ 默认系统字体做 HUD 分数<br>
+        ⑰ 变动数字未用 tabular-nums<br>
+        ⑱ 灰底 + 白线 / 纯黑背景<br>
+        ⑲ 默认 alert / confirm / select 做覆盖层<br>
+        ⑳ 音符逐个挂 SVG feGaussianBlur → 掉帧<br>
+        ㉑ 反馈文字画在轨道轴上贴近判定线 → 被本轨下一音穿过<br>
+        ㉒ 里程碑横幅/徽章横跨下落通道 → 遮住要打的音符<br>
+        ㉓ 判定线在游戏中位移、变宽、变双线 → 参照系被改，判定随机<br>
+        ㉔ 落点垫按下时改尺寸 → 误判 PERFECT 窗口边界<br>
+        ㉕ MISS 玫红挪用到 Combo / 菜单 → 语义串味<br>
+        ㉖ 只用颜色区分 5 轨 → 色觉差异玩家无法识别<br>
+        ㉗ 底部坐标硬编码 560 → 移动端 judgeY=620 整体错位
+      </p>
+    </div>
+  </div>
+
+  <h2 class="sec">09　SVG / Canvas 分工</h2>
+  <div class="grid g3">
+    <div class="card">
+      <h3>L0 背景 · SVG + CSS（静态）</h3>
+      <p class="cap">多层渐变、纸纹 feTurbulence、星尘、5 条垂直谱线、谱表边界、背景水平细网格、谱号与拍号、唱名、图标。滤镜声明一次即复用，可无损缩放，可挂无障碍语义。</p>
+    </div>
+    <div class="card">
+      <h3>L1 谱面 + L2 特效 · Canvas 2D（每帧）</h3>
+      <p class="cap">音符（sprite drawImage）、拖尾、落点垫、节拍线 / 小节线、判定线、爆闪、涟漪、粒子、里程碑光环、全屏闪白。L2 用 globalCompositeOperation='lighter' / 'screen'。禁止每帧 createLinearGradient / shadowBlur。</p>
+    </div>
+    <div class="card">
+      <h3>L3 HUD · DOM + CSS</h3>
+      <p class="cap">分数、Combo、进度条、评级徽章、反馈文字、开始 / 暂停 / 结算三层覆盖层。事件驱动更新，不参与逐帧重绘。逻辑坐标恒为 1200×800，外层 transform: scale() 适配。</p>
+    </div>
+  </div>
+  <p class="stage-lbl">性能硬指标：60fps（120Hz 屏 ≥50fps），主线程单帧 ≤8ms；粒子池上限 400；音符 sprite 预渲染 5 色 × 3 变体 = 15 张；屏震期间不降粒子数。</p>
+
+</div>
+</body>
+</html>

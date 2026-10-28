@@ -1,0 +1,400 @@
+/* ============================================================
+   《百灵鸟在五线谱上飞行》 设计令牌 (Design Tokens)
+   1200 × 800 基准 · 纯本地系统字体 · 无外部资源
+   本文件只定义令牌与静态视觉，不含游戏逻辑
+   ============================================================ */
+
+:root {
+  /* ---------- 字体栈（全本地，无网络请求） ---------- */
+  --font-ui: "PingFang SC", "HarmonyOS Sans SC", "Source Han Sans SC",
+             "Noto Sans SC", "Microsoft YaHei", system-ui, -apple-system,
+             "Segoe UI", Roboto, sans-serif;
+  --font-num: system-ui, -apple-system, "Segoe UI", Roboto,
+              "Helvetica Neue", Arial, sans-serif;
+  --font-music: "Songti SC", "STSong", "SimSun", "Times New Roman", serif;
+
+  /* ---------- 底色 ---------- */
+  --bg-sky-top: #16273F;
+  --bg-sky-mid: #0D1A2C;
+  --bg-horizon: #0A1220;
+  --bg-floor: #060A12;
+
+  --glow-warm: rgba(255, 196, 107, .10);   /* 地平线暖光 */
+  --glow-cool: rgba(120, 160, 220, .14);   /* 顶部冷天光 */
+  --grain-opacity: .035;                   /* 纸纹颗粒 */
+
+  /* ---------- 面板 / 遮罩 ---------- */
+  --panel-bg: rgba(10, 18, 32, .78);
+  --panel-border: rgba(168, 196, 230, .16);
+  --panel-shadow: 0 24px 60px rgba(0, 0, 0, .55);
+  --scrim: rgba(6, 10, 18, .72);
+  --scrim-blur: 10px;
+
+  /* ---------- 谱线与结构线 ---------- */
+  --staff-line: #8FA6C4;        /* 5 条垂直谱线 */
+  --staff-line-alpha: .30;
+  --staff-edge: #8FA6C4;        /* 谱表左右边界 x=140 / x=1060 */
+  --staff-edge-alpha: .30;
+  --grid-hairline: rgba(143, 166, 196, .10);   /* 背景水平细网格 */
+  --beat-line: rgba(168, 196, 230, .10);       /* 节拍线 */
+  --bar-line: rgba(168, 196, 230, .22);        /* 小节线 */
+  --judge-hairline: rgba(168, 196, 230, .22);   /* 判定线通栏细线 */
+  --judge-perfect-line: rgba(255, 196, 77, .22);/* PERFECT 窗口 y=530 / 590 */
+  --judge-good-line: rgba(79, 209, 232, .14);   /* GOOD 窗口 y=495 / 625（默认关） */
+  --judge-glow: #FFD79A;                        /* 指挥棒高光 */
+
+  /* ---------- 轨道色（x = 200 / 400 / 600 / 800 / 1000） ---------- */
+  --lane-0: #FFD166;   /* ←  琥珀金 */
+  --lane-1: #FF8A5C;   /* ↑  落日橙 */
+  --lane-2: #F4F7FB;   /* 空格 象牙白（主角轨） */
+  --lane-3: #63D9A6;   /* ↓  薄荷绿 */
+  --lane-4: #7FA8F0;   /* →  晴空蓝 */
+
+  /* 落点垫 / 幽灵符头 */
+  --pad-fill-mix: 28%;            /* 轨道色 + 28% 白 */
+  --pad-size-w: 88px;
+  --pad-size-h: 10px;
+  --pad-size-w-hero: 104px;       /* 中心轨道加宽 */
+  --pad-size-h-hero: 12px;
+  --pad-ghost: rgba(255, 255, 255, .16);
+
+  /* ---------- 判定色 ---------- */
+  --judge-perfect: #FFF4C8;
+  --judge-perfect-glow: #FFC64D;
+  --judge-good: #4FD1E8;
+  --judge-good-glow: #2AA6C4;
+  --judge-miss: #FF4D6D;
+  --judge-miss-glow: #C0304C;
+
+  /* ---------- 粒子 / 里程碑 ---------- */
+  --fx-feather: #FFD98A;
+  --fx-star: #FFFFFF;
+  --fx-ember: #FF9A4D;
+  --fx-shard: #4A5A70;      /* MISS 碎屑 */
+  --milestone-gold: #FFC64D;
+  --milestone-pale: #FFF4C8;
+  --milestone-deep: #8A6A28;
+
+  /* ---------- 文字 ---------- */
+  --text-hi: #EEF4FB;
+  --text-mid: #A9BCD2;
+  --text-lo: #6C819B;
+  --text-gold: #FFE3A8;
+
+  /* ---------- 几何常量（逻辑坐标系 1200×800） ----------
+     ⚠️ 以下 4 个变量由 JS 在运行时写入，不要在 CSS 里硬编码：
+        移动端 judgeY=620 / spawnY=10；练习模式 noteSpeed=290（beatGap 同步 290）
+     判定线以下的全部 HUD 坐标一律用下面的派生量，不允许写死 560 */
+  --stage-w: 1200;
+  --stage-h: 800;
+  --judge-y: 560;            /* 判定线（JS 写入） */
+  --note-spawn-y: -50;       /* 音符生成（JS 写入） */
+  --note-speed: 340;         /* px/s，音符与谱线同步下落（JS 写入，练习 290） */
+  --beat-gap: 340px;         /* 每拍间距 = noteSpeed × 0.5s（JS 写入） */
+  --bar-gap: 1360px;         /* 每小节（4 拍）间距（JS 写入） */
+  --travel: 610px;           /* = judgeY − spawnY，恒定 610px */
+
+  /* 轨道与谱表 X（水平方向不随 judgeY 变化） */
+  --lane-0-x: 200;
+  --lane-1-x: 400;
+  --lane-2-x: 600;
+  --lane-3-x: 800;
+  --lane-4-x: 1000;
+  --staff-left-x: 140;       /* 谱表左边界（起始双线 x=140 / 146） */
+  --staff-right-x: 1060;
+  --keycap-start-x: 416;     /* 键位图例起点（总宽 368） */
+  --keycap-gap: 14px;
+  --keycap-w: 56px;          /* 空格键 88px */
+  --keycap-w-hero: 88px;
+
+  /* 判定线以下派生量（相对 judgeY） */
+  --pad-y: var(--judge-y);                       /* 落点垫中心 */
+  --seq-y: calc(var(--judge-y) + 18px);          /* 序号 1–5 基线 */
+  --solfege-y: calc(var(--judge-y) + 26px);      /* 唱名基线 */
+  --judge-text-y: calc(var(--judge-y) + 60px);   /* 判定文字基线 */
+  --judge-lead-y0: calc(var(--judge-y) + 6px);   /* 归属引线起点 */
+  --judge-lead-y1: calc(var(--judge-y) + 40px);  /* 归属引线终点 */
+  --combo-label-y: calc(var(--judge-y) + 90px);  /* COMBO 标签基线 */
+  --combo-num-y: calc(var(--judge-y) + 100px);   /* Combo 数字顶 */
+  --combo-num-size: 56px;
+  --milestone-band-y0: calc(var(--judge-y) + 100px);
+  --milestone-band-y1: calc(var(--judge-y) + 156px);
+  --keycap-y: calc(var(--judge-y) + 172px);
+  --pause-y: calc(var(--judge-y) + 166px);
+
+  /* 判定窗口 */
+  --perfect-window: 30;      /* |y - judgeY| <= 30 */
+  --good-window: 65;         /* |y - judgeY| <= 65 */
+
+  /* ---------- 字号阶梯 ---------- */
+  --t-display-1: 800 112px/1.0 var(--font-num);
+  --t-display-2: 800 56px/1.15 var(--font-ui);
+  --t-display-3: 800 56px/1.0 var(--font-num);
+  --t-score: 700 44px/1.0 var(--font-num);
+  --t-h1: 700 24px/1.3 var(--font-ui);
+  --t-h2: 600 18px/1.4 var(--font-ui);
+  --t-feedback: 800 22px/1.0 var(--font-ui);
+  --t-body: 400 14px/1.6 var(--font-ui);
+  --t-label: 700 11px/1.2 var(--font-ui);
+  --t-micro: 500 11px/1.2 var(--font-music);
+
+  /* ---------- 动效时长 ---------- */
+  --fx-tap: 240ms;
+  --fx-perfect: 360ms;
+  --fx-good: 300ms;
+  --fx-miss: 280ms;
+  --fx-float: 24px;          /* 判定文字上浮距离 */
+  --fx-milestone-10: 900ms;
+  --fx-milestone-30: 1300ms;
+  --fx-milestone-50: 1600ms;
+  --fx-milestone-100: 2200ms;
+  --shake-freq: 26;          /* Hz */
+}
+
+/* ============================================================
+   移动端布局（pointer: coarse / judgeY = 620）
+   底部仅剩 180px，整体压缩；键位图例隐藏（改用触控提示带）
+   ============================================================ */
+
+.stage[data-layout="mobile"] {
+  --combo-num-size: 40px;
+  --judge-text-y: calc(var(--judge-y) + 52px);
+  --combo-label-y: calc(var(--judge-y) + 62px);
+  --combo-num-y: calc(var(--judge-y) + 80px);
+  --milestone-band-y0: calc(var(--judge-y) + 80px);
+  --milestone-band-y1: calc(var(--judge-y) + 140px);
+  --pause-y: calc(var(--judge-y) + 126px);
+}
+
+/* ============================================================
+   静态背景（可直接复制使用）
+   ============================================================ */
+
+.stage {
+  position: relative;
+  width: 1200px;
+  height: 800px;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 70% at 50% 100%, var(--glow-warm), rgba(255,196,107,0) 60%),
+    radial-gradient(80% 50% at 50% -10%, var(--glow-cool), rgba(120,160,220,0) 70%),
+    linear-gradient(180deg,
+      var(--bg-sky-top) 0%,
+      var(--bg-sky-mid) 42%,
+      var(--bg-horizon) 72%,
+      var(--bg-floor) 100%);
+  color: var(--text-hi);
+  font-family: var(--font-ui);
+  isolation: isolate;
+}
+
+/* 纸纹颗粒：一张 SVG，filter: turbulence */
+.grain {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  opacity: var(--grain-opacity);
+  mix-blend-mode: overlay;
+  z-index: 1;
+}
+
+/* ============================================================
+   通用文字原子
+   ============================================================ */
+
+.num {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.label {
+  font: var(--t-label);
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--text-lo);
+}
+
+.micro-music {
+  font: var(--t-micro);
+  color: var(--text-lo);
+  opacity: .8;
+}
+
+/* 反馈文字：深色投影保证压在音符上仍可读 */
+.fx-text {
+  font-family: var(--font-ui);
+  font-weight: 800;
+  transform: skewX(-6deg);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, .75);
+}
+.fx-perfect {
+  font-size: 22px; line-height: 1;
+  color: var(--judge-perfect);
+  -webkit-text-stroke: 2px rgba(255, 255, 255, .55);
+}
+.fx-good {
+  font-size: 18px; line-height: 1;
+  color: var(--judge-good);
+}
+.fx-miss {
+  font-size: 18px; line-height: 1;
+  color: var(--judge-miss);
+}
+
+/* ============================================================
+   面板 / 按钮
+   ============================================================ */
+
+.panel {
+  position: absolute;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 18px;
+  box-shadow: var(--panel-shadow);
+  backdrop-filter: blur(12px);
+}
+
+.scrim {
+  position: absolute; inset: 0;
+  background: var(--scrim);
+  backdrop-filter: blur(var(--scrim-blur)) saturate(.9);
+}
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 48px; padding: 0 32px;
+  border-radius: 10px;
+  font: 800 18px/1 var(--font-ui);
+  cursor: pointer;
+  transition: transform 120ms ease, filter 120ms ease, background 120ms ease;
+}
+.btn:active { transform: translateY(1px) scale(.99); }
+
+.btn-primary {
+  background: var(--milestone-gold);
+  color: var(--bg-sky-mid);
+  border: 1px solid rgba(255, 255, 255, .28);
+}
+.btn-primary:hover { filter: brightness(1.08); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-hi);
+  border: 1.5px solid rgba(168, 196, 230, .28);
+}
+.btn-ghost:hover { background: rgba(168, 196, 230, .08); }
+
+/* ============================================================
+   轨道高亮：按键时的竖直光柱（判定线向上 260px 渐隐）
+   ============================================================ */
+
+.lane-glow {
+  position: absolute;
+  top: calc(var(--judge-y) - 260px);
+  width: 80px;
+  height: 260px;
+  pointer-events: none;
+  background: linear-gradient(0deg,
+    var(--lane-color, var(--lane-2)) 0%,
+    color-mix(in srgb, var(--lane-color, var(--lane-2)) 14%, transparent) 100%);
+  opacity: 0;
+  transition: opacity 80ms linear;
+}
+.lane-glow.on { opacity: 1; }
+
+/* ============================================================
+   判定反馈（判定线下方，绝不占用下落通道）
+   ============================================================ */
+
+.judge-text {
+  position: absolute;
+  transform: translateX(-50%) skewX(-6deg);
+  opacity: 0;
+  pointer-events: none;
+}
+.judge-text.perfect { font: 800 22px/1 var(--font-ui); color: var(--judge-perfect); -webkit-text-stroke: 2px rgba(255,255,255,.55); }
+.judge-text.good    { font: 600 18px/1 var(--font-ui); color: var(--judge-good); }
+.judge-text.miss    { font: 600 18px/1 var(--font-ui); color: var(--judge-miss); }
+
+/* 归属引线：把判定线与文字连起来 */
+.judge-lead {
+  position: absolute;
+  width: 1px;
+  background: var(--lane-color, var(--lane-2));
+  opacity: .3;
+  pointer-events: none;
+}
+
+/* 判定线下方的静止标识：序号 + 唱名 */
+.lane-seq {
+  position: absolute;
+  transform: translateX(-50%);
+  font: 700 10px/1 var(--font-num);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-lo);
+  opacity: .40;
+}
+.lane-solfege {
+  position: absolute;
+  transform: translateX(-50%);
+  font: 500 11px/1 var(--font-music);
+  color: var(--text-lo);
+  opacity: .80;
+}
+
+/* ============================================================
+   键位图例：56 / 56 / 88(空格) / 56 / 56，间距 14，总宽 368
+   键符必须用 SVG path，不用字体字符（避免跨系统字形差异）
+   ============================================================ */
+
+.keycap {
+  position: absolute;
+  top: var(--keycap-y);
+  width: var(--keycap-w);
+  height: var(--keycap-w);
+  border-radius: 12px;
+  border: 1.5px solid var(--lane-color, var(--text-lo));
+  opacity: .8;
+  transition: background 120ms ease, opacity 120ms ease;
+}
+.keycap.hero { width: var(--keycap-w-hero); }
+.keycap.on { background: var(--lane-color, var(--text-lo)); opacity: 1; }
+.keycap .idx {
+  position: absolute; top: -8px; right: 4px;
+  font: 700 11px/1 var(--font-num);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-lo);
+}
+
+/* ============================================================
+   进度条：填充 = 五轨道色横向渐变
+   ============================================================ */
+
+.progress {
+  position: absolute;
+  left: 360px; top: 52px;
+  width: 480px; height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, .10);
+  overflow: visible;
+}
+.progress-fill {
+  position: absolute; inset: 0 auto 0 0;
+  border-radius: 2px;
+  background: linear-gradient(90deg,
+    var(--lane-0), var(--lane-1), var(--lane-2), var(--lane-3), var(--lane-4));
+}
+.progress-knob {
+  position: absolute; top: 50%;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 4px rgba(255, 255, 255, .9);
+  transform: translate(-50%, -50%);
+}
+
+/* ============================================================
+   屏震：容器包裹整页，transform 由 rAF 驱动
+   幅度 A(t) = A0 · e^(-4t) · sin(2π f t)
+   ============================================================ */
+
+.shake-wrap { will-change: transform; }
