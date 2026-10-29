@@ -8,7 +8,16 @@ const path = require('path');
 const os = require('os');
 
 const ROOT = path.resolve(__dirname, '..');
-const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const CHROME = [
+  process.env.CHROME_PATH,
+  'C:/Program Files/Google/Chrome/Application/chrome.exe',
+  'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
+  path.join(process.env.LOCALAPPDATA || '', 'Google/Chrome/Application/chrome.exe'),
+  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
+  'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+].filter(Boolean).find(p => fs.existsSync(p));
+if (!CHROME) { console.error('找不到 Chrome/Edge，可用 CHROME_PATH 指定'); process.exit(1); }
 const PORT = 9333;
 const FILE = 'file://' + path.join(ROOT, 'index.html');
 const SHOTS = process.argv.includes('--shots');
@@ -95,13 +104,18 @@ async function main() {
   const boot = await evalJS(`(function(){var g=window.__game;return JSON.stringify({state:g.G.state,notes:g.G.notes.length,chart:g.G.chart.notes.length});})()`);
   console.log('  boot →', boot.value || boot.error);
   check('BOOT 无脚本错误', (await evalJS('window.__e.length'))?.value === 0);
-  check('谱面 422 音', JSON.parse(boot.value || '{}').notes === 422, 'notes=' + (JSON.parse(boot.value || '{}').notes));
+  const _n = JSON.parse(boot.value || '{}').notes;
+  /* 音乐就绪后谱面会换成「音乐弹奏点」驱动，音符数不再等于程序谱面的 TOTAL_NOTES(422)，
+     所以这里只验证占位谱面存在，音乐谱面在下面第 2 步就绪后再断言。 */
+  check('标题页已给出占位谱面', _n > 100, 'notes=' + _n);
 
   console.log('\n=== 2. 离线渲染整曲（计时）===');
   const t0 = Date.now();
   const ready = await evalJS('window.__ready');
   const renderMs = Date.now() - t0;
   check('OfflineAudioContext 渲染整曲完成', ready.value === true, '耗时 ' + (renderMs / 1000).toFixed(2) + 's');
+  const _mc = JSON.parse((await evalJS(`(function(){var g=window.__game;return JSON.stringify({src:g.G.chart.source,notes:g.G.notes.length});})()`)).value || '{}');
+  check('就绪后谱面切换为音乐弹奏点驱动', _mc.src === 'music' && _mc.notes > 300, JSON.stringify(_mc));
   const audioInfo = await evalJS(`(function(){var s=window.__game.Sound;return JSON.stringify({ctx:s.ctx.state,sr:s.ctx.sampleRate});})()`);
   console.log('  audio →', audioInfo.value);
 
