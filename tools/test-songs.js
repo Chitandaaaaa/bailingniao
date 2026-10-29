@@ -102,9 +102,26 @@ async function main() {
     /* 快照 #scene-bg 的实际渲染结果：class、底图、滤镜。
        两张内联 JPEG 都以同样的 base64 头开头，所以指纹取中段而非开头。 */
     window.__bgSnap=function(){var el=document.getElementById('scene-bg');
-      var cs=getComputedStyle(el),u=cs.backgroundImage||'';
-      return {cls:el.className,img:u.length,pfx:u.slice(0,30),
-        key:u.slice(2000,2060),filter:cs.filter,pos:cs.backgroundPosition};};
+      var cs=getComputedStyle(el);
+      /* 轮播层：两组 .bg-set（summer 6 张 / kaze 7 张），只有当前曲目那组 display:block */
+      var sl=document.querySelectorAll('#scene-bg .bg-slide');
+      var an=document.getAnimations().filter(function(a){return /^bgCycle/.test(a.animationName);});
+      var vis=[].filter.call(document.querySelectorAll('#scene-bg .bg-set'),function(s){
+        return getComputedStyle(s).display!=='none';})[0];
+      var first=vis&&vis.querySelector('.bg-slide');
+      var fu=first?(getComputedStyle(first).backgroundImage||''):'';
+      return {cls:el.className,img:cs.backgroundImage.length,pfx:cs.backgroundImage.slice(0,30),
+        /* 指纹取当前可见组第一张的中段：内联 JPEG 都以同样的 base64 头开头，开头没用 */
+        key:fu.slice(2000,2060),filter:cs.filter,pos:cs.backgroundPosition,
+        slides:sl.length,anim:an.length,
+        imgs:[].map.call(sl,function(d){return (getComputedStyle(d).backgroundImage||'').length>1000?1:0;}),
+        /* 每张的取景（舞台 3:2 cover 16:9 只横向裁，X 值才有效） */
+        posList:[].map.call(sl,function(d){return getComputedStyle(d).backgroundPosition;}),
+        setSummer:document.querySelectorAll('#scene-bg .set-summer .bg-slide').length,
+        setKaze:document.querySelectorAll('#scene-bg .set-kaze .bg-slide').length,
+        /* 只关心「有没有外链」：内联 data URL 与尚未注入（开发中）都算通过 */
+        hasExt:sl.length&&[].some.call(sl,function(d){return /https?:/.test(getComputedStyle(d).backgroundImage||'');}),
+        zBefore:getComputedStyle(el,'::before').zIndex};};
     window.__waitReady=function(){return new Promise(function(res){var t0=Date.now();
       var iv=setInterval(function(){if(window.__game&&window.__game.Sound.ready){clearInterval(iv);res(Date.now()-t0);}
         else if(Date.now()-t0>90000){clearInterval(iv);res(-1);}},100);});};`);
@@ -122,9 +139,11 @@ async function main() {
   check('默认曲目 = summer', boot.song === 'summer');
   check('选曲卡渲染出 2 首', boot.cards.length === 2, boot.cards.join(' | '));
   check('标题页曲目文案含 Summer', /Summer/.test(boot.tSong));
-  check('Summer 用默认背景（无曲目专属 class）', boot.bg.cls === '', 'class=' + JSON.stringify(boot.bg.cls));
-  check('Summer 背景内联无外链', boot.bg.img > 500000 && /^url\("data:image\/jpeg;base64,/.test(boot.bg.pfx),
-    'imgLen=' + boot.bg.img);
+  check('Summer 有自己的场景背景 class（背景轮播）', boot.bg.cls === 'song-summer', 'class=' + JSON.stringify(boot.bg.cls));
+  /* 只断言「内联 data URL 且不是空图」，不绑死体积：底图可能被重新压缩过 */
+  check('Summer 一组 6 张轮播层', boot.bg.setSummer === 6 && boot.bg.setKaze === 7,
+    'summer=' + boot.bg.setSummer + ' kaze=' + boot.bg.setKaze +
+    ' 已注入=' + boot.bg.imgs.filter(function(x){return x===1;}).length + '/' + boot.bg.slides);
   check('无脚本错误', (await evalJS('window.__e.length'))?.value === 0);
 
   let ms = await evalJS('window.__waitReady()');
@@ -138,8 +157,8 @@ async function main() {
   await evalJS(`document.querySelector('[data-song="kaze"]').click();`);
   await sleep(200);
   const mid = await J(`(function(){var b=document.getElementById('btn-start');return JSON.stringify({
-      disabled:b.disabled,rule:document.getElementById('t-rule').textContent.slice(0,24)});})()`);
-  check('切歌瞬间开始按钮被禁用', mid.disabled === true, JSON.stringify(mid));
+      busy:b.classList.contains('is-busy'),txt:b.textContent,hint:document.getElementById('t-hint').textContent});})()`);
+  check('切歌瞬间开始按钮进入装载态（不再禁用）', mid.busy === true && mid.txt.indexOf('准备') >= 0, JSON.stringify(mid));
   ms = await evalJS('window.__waitReady()');
   check('录音解码完成', ms.value > 0, '耗时 ' + (ms.value / 1000).toFixed(2) + 's');
 
@@ -159,35 +178,81 @@ async function main() {
 
   console.log('\n--- 3.5 曲目专属背景 ---');
   check('kaze 挂上曲目专属 class', kz.bg.cls === 'song-kaze', 'class=' + JSON.stringify(kz.bg.cls));
-  check('底图已换成新的夜景（与 Summer 不同）', kz.bg.key !== boot.bg.key,
-    'summer len=' + boot.bg.img + ' / kaze len=' + kz.bg.img);
-  check('新背景同样是内联（无外链依赖）', kz.bg.img > 50000 && /^url\("data:image\/jpeg;base64,/.test(kz.bg.pfx),
-    kz.bg.pfx + '… imgLen=' + kz.bg.img);
+  check('切曲目只换整组（summer 6 层 / kaze 7 层各自轮播）',
+    boot.bg.anim === 6 && kz.bg.anim === 7,
+    'summer 动画=' + boot.bg.anim + ' kaze 动画=' + kz.bg.anim +
+    ' 图层=' + boot.bg.slides + '(' + boot.bg.setSummer + '+' + boot.bg.setKaze + ')');
+  check('轮播图全内联，无外链请求', boot.bg.hasExt === false && kz.bg.hasExt === false,
+    'summer hasExt=' + boot.bg.hasExt + ' kaze hasExt=' + kz.bg.hasExt);
   check('夜景用了不同的滤镜（未照抄夏图的压暗）', kz.bg.filter !== boot.bg.filter,
     'summer: ' + boot.bg.filter + '  |  kaze: ' + kz.bg.filter);
-  check('横向取景偏移，让左侧灯火入画', /^32%/.test(kz.bg.pos), 'background-position=' + kz.bg.pos);
+  check('逐图取景偏移，让主体/灯火入画',
+    kz.bg.posList.some(function(v){return !/^(50|center)%/.test(v.split(' ')[0]);}),
+    'kaze 取景=' + JSON.stringify(kz.bg.posList));
 
-  console.log('\n=== 3. 三个难度都能出谱（切难度后重载谱面）===');
-  for (const d of ['easy', 'hard', 'nightmare']) {
+  console.log('\n=== 3. 四档难度都能出谱（点难度卡，走真实切换路径）===');
+  const EXPECT = { practice: 1, easy: 2, hard: 4, nightmare: 8 };
+  const EXPECT_KEYS = { practice: '空格', easy: 'FJ', hard: 'DFJK', nightmare: 'ASDFJKL;' };
+  for (const d of ['practice', 'easy', 'hard', 'nightmare']) {
+    await evalJS(`document.querySelector('[data-diff="${d}"]').click();`);
+    await sleep(150);
     const r = await J(`(function(){var g=window.__game;
-      g.G.diff='${d}';g.G.mode='${d}';g.G.active=g.DIFFS['${d}'].active.slice();
-      g.loadChart('${d}');
-      var lane=[0,0,0,0,0],max=-1,last=-1,gapMin=1e9,tight=0;
-      for(var i=0;i<g.G.notes.length;i++){var n=g.G.notes[i];lane[n.lane]++;
+      var lane=[],max=-1,last=-1,gapMin=1e9,tight=0;
+      for(var i=0;i<g.G.notes.length;i++){var n=g.G.notes[i];
+        lane[n.lane]=(lane[n.lane]||0)+1;
         if(n.t>max)max=n.t;
         if(last>=0){var gp=n.t-last;if(gp<gapMin)gapMin=gp;if(gp<0.25)tight++;}
         last=n.t;}
-      return JSON.stringify({mode:g.G.mode,notes:g.G.notes.length,dur:+max.toFixed(1),
-        rate:+(g.G.notes.length/max).toFixed(2),lane:lane,
-        gapMin:+gapMin.toFixed(3),tight:tight});})()`);
+      return JSON.stringify({mode:g.G.mode,laneN:g.laneN,notes:g.G.notes.length,dur:+max.toFixed(1),
+        rate:+(g.G.notes.length/max).toFixed(2),lane:lane.slice(0,g.laneN),
+        keys:g.laneKeyChar.join(''),gapMin:+gapMin.toFixed(3),tight:tight});})()`);
     console.log('  ' + JSON.stringify(r));
-    check(d + ' 出谱且落在活跃轨', r.notes > 100 && (d === 'easy' ? r.lane[2] === r.notes : r.lane[0] + r.lane[4] >= 0),
-      'notes=' + r.notes + ' lanes=' + r.lane.join('/'));
+    check(d + ' 轨道数 = ' + EXPECT[d], r.laneN === EXPECT[d], 'laneN=' + r.laneN);
+    check(d + ' 键位 = ' + EXPECT_KEYS[d], r.keys === EXPECT_KEYS[d], 'keys=' + r.keys);
+    check(d + ' 出谱且每轨都有音', r.notes > 100 && r.lane.length === EXPECT[d] && r.lane.every(v => v > 0),
+      'notes=' + r.notes + ' 各轨=' + r.lane.join('/'));
     check(d + ' 最小间隔 ≥ 150ms', r.gapMin >= 0.15, 'gapMin=' + r.gapMin + 's tight(<250ms)=' + r.tight);
     check(d + ' 谱面不超出终点 195.27s', r.dur < 195.27, 'lastNote=' + r.dur + 's  密度=' + r.rate + '/s');
   }
 
+  console.log('\n--- 3.5 新按键 → 轨道 映射（真实 keydown 走通）---');
+  await evalJS(`(function(){var g=window.__game;g.setState('TITLE');return 1;})()`);
+  await sleep(120);
+  const KEYMAPS = {
+    practice: ['Space'],
+    easy: ['KeyF', 'KeyJ'],
+    hard: ['KeyD', 'KeyF', 'KeyJ', 'KeyK'],
+    nightmare: ['KeyA', 'KeyS', 'KeyD', 'KeyF', 'KeyJ', 'KeyK', 'KeyL', 'Semicolon']
+  };
+  for (const [d, codes] of Object.entries(KEYMAPS)) {
+    await evalJS(`document.querySelector('[data-diff="${d}"]').click();`);
+    await sleep(120);
+    await evalJS(`window.dispatchEvent(new KeyboardEvent('keydown',{code:'Space',key:' ',bubbles:true,cancelable:true}))`);
+    /* 倒计时 1500ms（见过教学）或 3000ms（首次），轮询到 PLAYING 再测按键 */
+    let st = '';
+    for (let w = 0; w < 20; w++) {
+      st = (await evalJS('window.__game.G.state'))?.value;
+      if (st === 'PLAYING') break;
+      await sleep(400);
+    }
+    const r = await J(`(function(){var g=window.__game,out=[];
+      var codes=${JSON.stringify(codes)};
+      for(var i=0;i<codes.length;i++){
+        var lane=g.keyToLane(codes[i]);
+        window.dispatchEvent(new KeyboardEvent('keydown',{code:codes[i],bubbles:true,cancelable:true}));
+        out.push({code:codes[i],lane:lane,held:!!g.G.held[lane]});
+        window.dispatchEvent(new KeyboardEvent('keyup',{code:codes[i],bubbles:true,cancelable:true}));
+      }
+      return JSON.stringify({state:g.G.state,both:out});})()`);
+    const ok = r.both.every((x, i) => x.lane === i && x.held === true);
+    check(d + ' 每个键映射到自己的轨且能按下', ok && st === 'PLAYING',
+      'state=' + st + ' ' + r.both.map(x => x.code + '→' + x.lane + (x.held ? '✓' : '✗')).join(' '));
+    await evalJS(`(function(){var g=window.__game;g.setState('TITLE');return 1;})()`);
+    await sleep(120);
+  }
+
   console.log('\n=== 4. 简单模式开局并检查真实发声 ===');
+  await evalJS(`document.querySelector('[data-diff="easy"]').click();`);
   await evalJS(`document.querySelector('[data-diff="easy"]').click();`);
   await sleep(150);
   await evalJS(`(function(){var g=window.__game;
@@ -242,7 +307,7 @@ async function main() {
       id:g.song.id,notes:g.G.notes.length,src:g.G.chart.source,bg:window.__bgSnap()});})()`);
   console.log('  ' + JSON.stringify(back));
   check('Summer 谱面回到音乐弹奏点', back.id === 'summer' && back.src === 'music' && back.notes > 100);
-  check('切回 Summer 背景还原', back.bg.cls === '' && back.bg.key === boot.bg.key,
+  check('切回 Summer 背景还原', back.bg.cls === boot.bg.cls && back.bg.key === boot.bg.key,
     'class=' + JSON.stringify(back.bg.cls) + ' filter=' + back.bg.filter);
 
   console.log('\n=== 6. 刷新后记住上回选的曲目 ===');

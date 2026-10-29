@@ -34,7 +34,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
   const t0 = Date.now();
   await page.goto(URL);
-  await page.waitForFunction(() => !document.getElementById('btn-start').disabled, { timeout: 20000 });
+  await page.waitForFunction(() => !document.getElementById('btn-start').classList.contains('is-busy'), { timeout: 40000 });
   const bootMs = Date.now() - t0;
   check('页面启动无异常', errs.length === 0, errs.slice(0, 2).join(' | '));
   check('音频在 6 秒内就绪', bootMs < 6000, bootMs + 'ms');

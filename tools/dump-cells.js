@@ -58,5 +58,18 @@ const PIANO_MIDI = (() => { const o = []; for (let m = PIANO_LO; m <= PIANO_HI; 
     'window.LAB_CELLS=' + JSON.stringify(out) + ';\n';
   fs.writeFileSync(path.join(__dirname, 'lab-cells.js'), js);
   console.log('写入 tools/lab-cells.js  ' + (js.length / 1024).toFixed(1) + 'KB');
+
+  /* 单文件版里的编辑台直接内联了这份数据，一并刷新（没有标记就跳过） */
+  const idxPath = path.join(ROOT, 'index.html');
+  const idx = fs.readFileSync(idxPath, 'utf8');
+  const A = '<!--<<<LAB_CELLS>>>-->', B = '<!--<<<END_LAB_CELLS>>>-->';
+  if (idx.includes(A) && idx.includes(B)) {
+    const i = idx.indexOf(A), j = idx.indexOf(B, i);
+    const block = A + '\n<script>\n' + js.trim() + '\n</script>\n' + B;
+    fs.writeFileSync(idxPath, idx.slice(0, i) + block + idx.slice(j + B.length), 'utf8');
+    console.log('已同步内联块 index.html');
+  } else {
+    console.log('index.html 里没有 LAB_CELLS 标记块，跳过（先跑 py tools/merge-lab.py）');
+  }
   await browser.close();
 })();

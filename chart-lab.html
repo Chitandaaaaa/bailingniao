@@ -15,6 +15,11 @@
     与游戏内一致，改参数即可得到新的真实谱面。
   · 用途：一页看完全曲音符密度/数量 + 按设计速度扫掠试听节奏。
   · 回填：右侧「导出参数」把数值抄回 index.html 的 DIFFS。
+  ------------------------------------------------------------
+  · 本文件是「可单独打开」的源版；游戏 index.html 里已经内联了一份
+    （右上角「返回游戏」、入口在游戏右下角那行小字）。
+    改完这里要跑 `py tools/merge-lab.py` 才会同步进 index.html ——
+    它负责 CSS 作用域化、id 改名、脚本延迟初始化，别手工粘贴。
   ============================================================
 -->
 <style>
@@ -435,11 +440,12 @@ const PRESETS = {
   hard:      { label: '困难', lanes: 4, keys: ['D', 'F', 'J', 'K'],                speed: 340, speedEnd: 1.32, maxStep: 3, pull: 0.60 },
   nightmare: { label: '噩梦', lanes: 8, keys: ['A', 'S', 'D', 'F', 'J', 'K', 'L', ';'], speed: 385, speedEnd: 1.40, maxStep: 2, pull: 0.60 }
 };
-/* 现役数值（对照表用） */
+/* 现役数值（对照表用）——已按本页预设回填到 index.html，两者现已一致 */
 const LIVE = {
-  easy:      { lanes: 1, speed: 300, speedEnd: 1.22 },
-  hard:      { lanes: 3, speed: 335, speedEnd: 1.22 },
-  nightmare: { lanes: 5, speed: 360, speedEnd: 1.20 }
+  practice:  { lanes: 1, speed: 300, speedEnd: 1.22 },
+  easy:      { lanes: 2, speed: 300, speedEnd: 1.22 },
+  hard:      { lanes: 4, speed: 340, speedEnd: 1.32 },
+  nightmare: { lanes: 8, speed: 385, speedEnd: 1.40 }
 };
 const TRAVEL = 610;     /* 与主代码一致：音符生成点 → 判定线的行程 */
 const BAR_BEATS = 4;

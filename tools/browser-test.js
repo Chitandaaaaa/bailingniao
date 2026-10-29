@@ -89,7 +89,12 @@ async function main() {
   await send('Page.enable');
   await send('Log.enable');
   await send('Page.navigate', { url: FILE });
-  await sleep(2500);
+  await sleep(1200);
+  /* 单文件已经 3MB+，解析耗时随机器负载浮动，别用固定 sleep 赌它加载完 */
+  for (let i = 0; i < 100; i++) {
+    if ((await evalJS('!!window.__game'))?.value) break;
+    await sleep(200);
+  }
 
   const results = [];
   const check = (name, cond, detail) => {
@@ -226,8 +231,9 @@ async function main() {
       else res(JSON.stringify({fps:(n/((t-t0)/1000)).toFixed(1),worstMs:worst.toFixed(1)}));}
     requestAnimationFrame(tick);});})()`);
   console.log('  ' + perf.value);
-  const fps = parseFloat(JSON.parse(perf.value).fps);
-  check('常规游戏帧率 ≥ 55fps（无头软件渲染）', fps >= 55, 'fps=' + fps);
+  /* rAF 采样偶发拿不到结果（标签页被节流/负载过高时），别让 JSON.parse 直接把整轮测试打断 */
+  const fps = parseFloat((JSON.parse(perf.value || 'null') || {}).fps);
+  check('常规游戏帧率 ≥ 55fps（无头软件渲染）', fps >= 55, 'fps=' + (isNaN(fps) ? '采样失败' : fps));
   /* 100 连击峰值帧率（仅记录，不判失败：软件渲染下可低于 60） */
   const peak = await evalJS(`(function(){
     var g=window.__game; g.G.combo=99; g.celebrate(100);

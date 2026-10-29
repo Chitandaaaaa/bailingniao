@@ -10,6 +10,7 @@ const PORT = 9337;
 const FILE = 'file://' + path.join(ROOT, 'index.html');
 const SONG = process.argv[2] || 'kaze';
 const DIR = process.argv[3] || path.join(ROOT, '_tmp');
+const DIFF = process.argv[4] || '';        /* 可选：难度 id，用来看不同轨道数的布局 */
 
 function findBrowser() {
   return [
@@ -54,6 +55,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   }
   await send('Emulation.setDeviceMetricsOverride', { width: 1400, height: 900, deviceScaleFactor: 1, mobile: false });
   await sleep(600);
+  if (DIFF) { await ev(`document.querySelector('[data-diff="${DIFF}"]').click()`); await sleep(800); }
 
   const shot = async name => {
     const r = await send('Page.captureScreenshot', { format: 'png' });

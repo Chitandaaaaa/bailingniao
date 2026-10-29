@@ -10,3 +10,6 @@ tools/shots/
 
 # 背景图生成原图（成品已内嵌进 index.html，只保留压缩版）
 assets/Studio_Ghibli_style_hand_paint_*.png
+
+# 本地临时对比文件
+_tmp/
