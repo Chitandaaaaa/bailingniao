@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>谱面实验室 · Chart Lab | 百灵鸟</title>
+<!--
+  ============================================================
+  谱面实验室（离线设计/校验工具，不参与游戏运行）
+  ------------------------------------------------------------
+  · 数据源：tools/lab-cells.js —— 由 tools/dump-cells.js 从 index.html
+    的真实音频事件导出，和游戏里 musicOnsets() 的口径完全一致。
+  · 生成器：activityOf / chartFromCells / injectHolds 与主代码同源，
+    只把「轨道数组」泛化成「轨道数 N」，因此这里的音符时间轴
+    与游戏内一致，改参数即可得到新的真实谱面。
+  · 用途：一页看完全曲音符密度/数量 + 按设计速度扫掠试听节奏。
+  · 回填：右侧「导出参数」把数值抄回 index.html 的 DIFFS。
+  ============================================================
+-->
+<style>
+  :root{
+    --bg:#100e12; --panel:#1a1620; --panel2:#231d29; --line:rgba(255,255,255,.08);
+    --ink:#F3EADD; --dim:#9a8c9c; --gold:#F2B33D; --warm:#E07B4E; --cool:#6C9FD2;
+    --ok:#63D9A6; --warn:#FF8AD8;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:
+      radial-gradient(120% 80% at 50% -10%, rgba(242,179,61,.07), transparent 60%),
+      var(--bg);
+    color:var(--ink);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    display:flex;flex-direction:column;overflow:hidden;
+  }
+  .mono{font-variant-numeric:tabular-nums;font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace}
+
+  /* ---------- 顶栏 ---------- */
+  header{
+    flex:0 0 auto;display:flex;align-items:center;gap:18px;
+    padding:10px 16px;border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,rgba(35,29,41,.9),rgba(26,22,32,.65));
+    backdrop-filter:blur(6px);
+  }
+  .brand{display:flex;flex-direction:column;line-height:1.2;min-width:150px}
+  .brand b{font-size:15px;letter-spacing:.04em}
+  .brand span{font-size:11px;color:var(--dim);letter-spacing:.14em}
+  .group{display:flex;align-items:center;gap:6px}
+  .group>.lab{font-size:11px;color:var(--dim);letter-spacing:.1em;margin-right:2px}
+  .chip{
+    appearance:none;border:1px solid var(--line);background:rgba(255,255,255,.03);
+    color:var(--ink);border-radius:999px;padding:6px 13px;font-size:13px;cursor:pointer;
+    transition:.16s;white-space:nowrap;
+  }
+  .chip:hover{background:rgba(255,255,255,.07);border-color:rgba(242,179,61,.4)}
+  .chip.on{background:linear-gradient(180deg,rgba(242,179,61,.26),rgba(224,123,78,.16));
+    border-color:rgba(242,179,61,.72);color:#fff;box-shadow:0 0 0 1px rgba(242,179,61,.2) inset}
+  .chip.mini{padding:4px 9px;font-size:12px}
+  .keys{display:flex;gap:5px;align-items:center}
+  .key{
+    min-width:26px;height:26px;padding:0 6px;border-radius:6px;display:inline-flex;
+    align-items:center;justify-content:center;font-size:12px;font-weight:600;
+    background:#0f0c12;border:1px solid;box-shadow:0 2px 0 rgba(0,0,0,.5);
+  }
+  .spacer{flex:1}
+  .stat-inline{font-size:12px;color:var(--dim);display:flex;gap:14px;align-items:baseline}
+  .stat-inline b{color:var(--ink);font-size:15px}
+
+  /* ---------- 主体 ---------- */
+  main{flex:1 1 auto;display:flex;min-height:0}
+  .mapwrap{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;padding:12px 14px 8px}
+  .maptop{display:flex;align-items:center;gap:10px;margin-bottom:6px;min-height:22px}
+  .maptop .t{font-size:12px;letter-spacing:.16em;color:var(--dim);text-transform:uppercase}
+  .legend{display:flex;gap:12px;font-size:11.5px;color:var(--dim);align-items:center;margin-left:auto}
+  .legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+  canvas{display:block}
+  #pbar{position:relative;flex:0 0 auto;height:5px;margin:8px 2px 0;border-radius:3px;
+    background:rgba(255,255,255,.07);cursor:pointer}
+  #pbar:hover{height:7px;margin-top:6px}
+  #pfill{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:3px;
+    background:linear-gradient(90deg,rgba(242,179,61,.55),#F2B33D);box-shadow:0 0 10px rgba(242,179,61,.45)}
+  #pknob{position:absolute;top:50%;left:0;width:11px;height:11px;border-radius:50%;background:#fff;
+    border:2px solid #F2B33D;transform:translate(-50%,-50%);box-shadow:0 0 10px rgba(242,179,61,.7);pointer-events:none}
+  #map{flex:1 1 auto;width:100%;min-height:120px;border-radius:12px;
+    background:linear-gradient(180deg,#151118,#100d12);border:1px solid var(--line);
+    cursor:crosshair}
+
+  aside{
+    flex:0 0 392px;width:392px;border-left:1px solid var(--line);overflow-y:auto;overflow-x:hidden;
+    padding:12px;display:flex;flex-direction:column;gap:10px;
+    background:linear-gradient(180deg,rgba(26,22,32,.55),rgba(16,14,18,.35));
+  }
+  .card{background:rgba(35,29,41,.6);border:1px solid var(--line);border-radius:12px;padding:11px 12px}
+  .card h3{margin:0 0 8px;font-size:12px;letter-spacing:.14em;color:var(--dim);font-weight:600;text-transform:uppercase;
+    display:flex;align-items:center;gap:8px}
+  .card h3 em{font-style:normal;color:var(--gold);letter-spacing:0}
+  #pv{width:100%;height:216px;border-radius:8px;background:#0c0a0f;border:1px solid var(--line)}
+
+  .row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:7px 0}
+  .row>label{font-size:12.5px;color:#cfc3d0;flex:0 0 84px}
+  .row .val{font-size:12.5px;color:var(--gold);flex:0 0 66px;text-align:right}
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;flex:1 1 40px;min-width:0;height:20px;background:transparent;cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:3px;
+    background:linear-gradient(90deg,rgba(242,179,61,.75),rgba(242,179,61,.18))}
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:14px;height:14px;border-radius:50%;margin-top:-5px;
+    background:#fff;border:2px solid var(--gold);box-shadow:0 0 8px rgba(242,179,61,.6)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px}
+  .kv{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;padding:3px 0;
+    border-bottom:1px dashed rgba(255,255,255,.05)}
+  .kv:last-child{border:0}
+  .kv span{color:var(--dim)}
+  .kv b{font-weight:600;color:var(--ink)}
+  .kv b.hot{color:var(--gold)}
+  .bars{display:flex;flex-direction:column;gap:4px;margin-top:4px}
+  .bar{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--dim)}
+  .bar .k{width:16px;text-align:center;color:var(--ink);font-weight:600}
+  .bar .track{flex:1;height:7px;border-radius:4px;background:rgba(255,255,255,.06);overflow:hidden}
+  .bar .fill{height:100%;border-radius:4px}
+  .bar .n{width:34px;text-align:right;font-variant-numeric:tabular-nums}
+  .note{font-size:11.5px;color:var(--dim);line-height:1.6;margin:6px 0 0}
+  .note b{color:#e8dcc9;font-weight:600}
+  details summary{cursor:pointer;font-size:12px;color:var(--dim);letter-spacing:.06em;outline:none}
+  details[open] summary{color:var(--gold);margin-bottom:6px}
+  table.cmp{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:4px}
+  table.cmp th,table.cmp td{padding:4px 5px;border-bottom:1px solid rgba(255,255,255,.06);text-align:right}
+  table.cmp th:first-child,table.cmp td:first-child{text-align:left;color:var(--dim)}
+  table.cmp th{color:var(--dim);font-weight:500;font-size:11px}
+  table.cmp tbody tr.cur td{color:var(--gold)}
+  pre#cfg{margin:6px 0 0;font-size:11px;line-height:1.5;color:#cbbfd0;background:#0d0b10;
+    border:1px solid var(--line);border-radius:8px;padding:8px;overflow:auto;max-height:120px;white-space:pre-wrap}
+  .btnrow{display:flex;gap:6px;margin-top:8px}
+  .btn{flex:1;appearance:none;border:1px solid var(--line);background:rgba(255,255,255,.04);
+    color:var(--ink);border-radius:8px;padding:7px 8px;font-size:12px;cursor:pointer;transition:.15s}
+  .btn:hover{background:rgba(255,255,255,.09);border-color:rgba(242,179,61,.45)}
+  .btn.primary{background:linear-gradient(180deg,rgba(242,179,61,.3),rgba(224,123,78,.18));
+    border-color:rgba(242,179,61,.6);color:#fff}
+  #boot-error{display:none;margin:60px auto;max-width:560px;padding:18px 20px;border-radius:12px;
+    border:1px solid rgba(255,138,216,.4);background:rgba(255,138,216,.06);color:#ffd9f3;font-size:13px}
+  #boot-error code{color:#fff;background:#000;padding:1px 5px;border-radius:4px}
+  @media (max-width:1180px){
+    aside{flex-basis:330px;width:330px}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><b>谱面实验室</b><span>CHART LAB</span></div>
+
+  <div class="group">
+    <span class="lab">曲目</span>
+    <button class="chip" data-song="summer">Summer</button>
+    <button class="chip" data-song="kaze">風のとおり道</button>
+  </div>
+
+  <div class="group">
+    <span class="lab">难度</span>
+    <button class="chip" data-diff="easy">简单</button>
+    <button class="chip" data-diff="hard">困难</button>
+    <button class="chip" data-diff="nightmare">噩梦</button>
+  </div>
+
+  <div class="group">
+    <span class="lab">键位</span>
+    <div class="keys" id="keyrow"></div>
+  </div>
+
+  <div class="spacer"></div>
+
+  <div class="stat-inline">
+    <span>音符 <b id="hud-count">0</b></span>
+    <span>平均 <b id="hud-nps">0</b> <small>/s</small></span>
+    <span>峰值 <b id="hud-peak">0</b> <small>/s</small></span>
+  </div>
+</header>
+
+<main>
+  <div class="mapwrap">
+    <div class="maptop">
+      <span class="t">全曲总谱 · 一页看完</span>
+      <span class="legend">
+        <span><i style="background:#F2B33D"></i>重音</span>
+        <span><i style="background:#8fa6c8"></i>普通</span>
+        <span><i style="background:#63D9A6;width:14px;border-radius:3px"></i>长按</span>
+        <span><i style="background:rgba(255,255,255,.18)"></i>小节线</span>
+      </span>
+    </div>
+    <canvas id="map"></canvas>
+    <div id="pbar" role="slider" aria-label="播放进度" tabindex="0">
+      <div id="pfill"></div><div id="pknob"></div>
+    </div>
+    <div class="maptop" style="margin:2px 0 0">
+      <span class="legend" style="margin-left:0">
+        点击总谱可跳转 · <b style="color:#cfc3d0">空格</b> 播放/暂停 · <b style="color:#cfc3d0">R</b> 复位
+      </span>
+      <span class="legend" id="scaninfo" style="margin-left:auto"></span>
+    </div>
+  </div>
+
+  <aside>
+    <div class="card">
+      <h3>落点预览 <em id="pv-speed">—</em></h3>
+      <canvas id="pv"></canvas>
+      <div class="note" id="pv-note">按设计速度实时下落，判定线在底部。这里感受的就是游戏里的手速压力。</div>
+    </div>
+
+    <div class="card">
+      <h3>速度</h3>
+      <div class="row"><label>起始 px/s</label>
+        <input type="range" id="s-speed" min="200" max="540" step="5"><span class="val mono" id="v-speed">—</span></div>
+      <div class="row"><label>末段倍率</label>
+        <input type="range" id="s-end" min="1" max="1.6" step="0.01"><span class="val mono" id="v-end">—</span></div>
+      <div class="kv"><span>末段速度</span><b class="mono hot" id="k-endspd">—</b></div>
+      <div class="kv"><span>屏幕可视秒数（610px 行程）</span><b class="mono" id="k-vis">—</b></div>
+      <div class="kv"><span>八分音符间距 300ms ≈</span><b class="mono" id="k-px">—</b></div>
+    </div>
+
+    <div class="card">
+      <h3>密度 / 频率</h3>
+      <div class="row"><label>轨道数</label>
+        <input type="range" id="s-lanes" min="2" max="8" step="2"><span class="val mono" id="v-lanes">—</span></div>
+      <div class="row"><label>最大跳槽</label>
+        <input type="range" id="s-step" min="1" max="6" step="1"><span class="val mono" id="v-step">—</span></div>
+      <div class="row"><label>后段收紧</label>
+        <input type="range" id="s-pull" min="0" max="1.2" step="0.05"><span class="val mono" id="v-pull">—</span></div>
+      <div class="kv"><span>安静段间隔</span><b class="mono" id="k-gapquiet">—</b></div>
+      <div class="kv"><span>最密处间隔</span><b class="mono" id="k-gapdense">—</b></div>
+    </div>
+
+    <div class="card">
+      <h3>结果统计</h3>
+      <div class="grid2">
+        <div class="kv"><span>音符总数</span><b class="mono hot" id="k-total">—</b></div>
+        <div class="kv"><span>时长</span><b class="mono" id="k-dur">—</b></div>
+        <div class="kv"><span>平均 NPS</span><b class="mono" id="k-avg">—</b></div>
+        <div class="kv"><span>峰值 NPS</span><b class="mono" id="k-peak">—</b></div>
+        <div class="kv"><span>最短间隔</span><b class="mono" id="k-mingap">—</b></div>
+        <div class="kv"><span>同轨最短</span><b class="mono" id="k-mingapsame">—</b></div>
+        <div class="kv"><span>长按数</span><b class="mono" id="k-holds">—</b></div>
+        <div class="kv"><span>同轨连击</span><b class="mono" id="k-jack">—</b></div>
+      </div>
+      <div class="bars" id="lanebars"></div>
+    </div>
+
+    <div class="card">
+      <h3>导出参数</h3>
+      <pre id="cfg">—</pre>
+      <div class="btnrow">
+        <button class="btn primary" id="btn-copy">复制 DIFFS 片段</button>
+        <button class="btn" id="btn-reset">还原预设</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <details>
+        <summary>设计对照：现役 vs 本页预设</summary>
+        <table class="cmp">
+          <thead><tr><th>难度</th><th>键位</th><th>起始</th><th>末段</th></tr></thead>
+          <tbody id="cmptable"></tbody>
+        </table>
+        <p class="note">
+          简单保持现役节奏（同一套弹奏点、同一跳槽策略），只是把单轨拆成 <b>F / J</b> 两只手；
+          困难把所有速度参数抬 <b>+5px/s</b> 起始、末段倍率 1.22→1.32；
+          噩梦 8 轨 + 起始 385、末帧约 539px/s，同屏压缩到约 1.13 秒——读谱密度靠轨道数摊薄。
+        </p>
+      </details>
+    </div>
+  </aside>
+</main>
+
+<div id="boot-error">
+  <b>缺少谱面数据</b><br>
+  本页需要 <code>tools/lab-cells.js</code>。请在仓库根目录执行：<br>
+  <code>NODE_PATH=&lt;playwright&gt; node tools/dump-cells.js</code>
+</div>
+
+<script src="tools/lab-cells.js"></script>
+<script>
+(function () {
+'use strict';
+
+/* ============================================================
+ * 0. 设计参数（回填 index.html 的 DIFFS 就是这三坨）
+ * ============================================================ */
+const PRESETS = {
+  easy:      { label: '简单', lanes: 2, keys: ['F', 'J'],                          speed: 300, speedEnd: 1.22, maxStep: 4, pull: 0.60 },
+  hard:      { label: '困难', lanes: 4, keys: ['D', 'F', 'J', 'K'],                speed: 340, speedEnd: 1.32, maxStep: 3, pull: 0.60 },
+  nightmare: { label: '噩梦', lanes: 8, keys: ['A', 'S', 'D', 'F', 'J', 'K', 'L', ';'], speed: 385, speedEnd: 1.40, maxStep: 2, pull: 0.60 }
+};
+/* 现役数值（对照表用） */
+const LIVE = {
+  easy:      { lanes: 1, speed: 300, speedEnd: 1.22 },
+  hard:      { lanes: 3, speed: 335, speedEnd: 1.22 },
+  nightmare: { lanes: 5, speed: 360, speedEnd: 1.20 }
+};
+const TRAVEL = 610;     /* 与主代码一致：音符生成点 → 判定线的行程 */
+const BAR_BEATS = 4;
+
+if (!window.LAB_CELLS) { document.getElementById('boot-error').style.display = 'block'; return; }
+const CELLS = window.LAB_CELLS;
+
+const $ = s => document.querySelector(s);
+const clamp = (v, a, b) => v < a ? a : (v > b ? b : v);
+const fmt = n => Math.round(n).toLocaleString('en-US');
+
+/* ============================================================
+ * 1. 谱面生成器（与 index.html 同源，轨道数组 → 轨道数 N）
+ * ============================================================ */
+function activityOf(cells) {
+  const n = cells.length;
+  if (!n) return new Float64Array(0);
+  const HALF = 2.4, SPAN = HALF * 2;
+  const w = c => 0.35 + 0.65 * Math.min(1, c.s * 2.4);
+  const rate = new Float64Array(n);
+  let lo = 0, hi = 0, acc = 0;
+  for (let i = 0; i < n; i++) {
+    const t = cells[i].t;
+    while (hi < n && cells[hi].t - t <= HALF) { acc += w(cells[hi]); hi++; }
+    while (lo < i && t - cells[lo].t > HALF) { acc -= w(cells[lo]); lo++; }
+    rate[i] = acc / SPAN;
+  }
+  const sorted = Float64Array.from(rate).sort();
+  const p12 = sorted[Math.floor(n * 0.12)], p88 = sorted[Math.min(n - 1, Math.floor(n * 0.88))];
+  const inv = 1 / Math.max(0.02, p88 - p12);
+  const out = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    const u = clamp((rate[i] - p12) * inv, 0, 1);
+    out[i] = Math.pow(clamp((u - 0.32) / 0.38, 0, 1), 2.4);
+  }
+  const sm = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    const a = out[i > 0 ? i - 1 : i], b = out[i], c = out[i < n - 1 ? i + 1 : i];
+    sm[i] = (a + b * 2 + c) * 0.25;
+  }
+  return sm;
+}
+
+/* 与主代码 chartFromMusic 同构：槽内择优 → 按活跃度跳槽 → 音高排名分轨 */
+function chartFromCells(cells, D) {
+  const n = cells.length;
+  const act = activityOf(cells);
+  for (let i = 0; i < n; i++) cells[i].a = act[i];
+  const SLOT = D.beat / 2;
+  const maxStep = D.maxStep || 2;
+  const minStep = 1;
+
+  const bestSlot = new Map();
+  for (let i = 0; i < n; i++) {
+    const c = cells[i];
+    const s = Math.round(c.t / SLOT);
+    const ph = Math.abs(c.t / D.beat - Math.round(c.t / D.beat));
+    const sc = c.s * (ph < 0.09 ? 2.0 - 0.6 * c.a : 1.0);
+    const cur = bestSlot.get(s);
+    if (!cur || sc > cur.sc) bestSlot.set(s, { c: c, sc: sc, a: c.a });
+  }
+  const slots = Array.from(bestSlot.keys()).sort((a, b) => a - b);
+
+  const stepAt = k => {
+    const e = bestSlot.get(slots[k]);
+    const prog = clamp(e.c.t / D.chartEnd, 0, 1);
+    const s = maxStep - (maxStep - 1) * e.a - D.pull * prog;
+    return Math.max(minStep, Math.min(maxStep, Math.round(s)));
+  };
+  const taken = [];
+  let k = 0;
+  while (k < slots.length) {
+    const step = stepAt(k);
+    let bi = k, bsc = -1;
+    for (let j = k; j < slots.length && slots[j] <= slots[k] + step - 1; j++) {
+      const e = bestSlot.get(slots[j]);
+      if (e.sc > bsc) { bsc = e.sc; bi = j; }
+    }
+    taken.push(bestSlot.get(slots[bi]).c);
+    k = bi + 1;
+  }
+  taken.sort((a, b) => a.t - b.t);
+
+  const L = D.lanes;
+  const multi = L > 1;
+  let ps = null;
+  const rankOf = p => {
+    if (!ps) return 0.5;
+    let lo = 0, hi = ps.length;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (ps[m] < p) lo = m + 1; else hi = m; }
+    return lo / ps.length;
+  };
+  if (multi) ps = taken.map(c => c.p).sort((a, b) => a - b);
+
+  const out = [];
+  const cnt = new Array(L).fill(0);
+  let prevLane = -1, run = 0;
+  for (let i = 0; i < taken.length; i++) {
+    const c = taken[i];
+    let lane = 0;
+    if (multi) {
+      lane = Math.round(clamp(rankOf(c.p), 0, 1) * (L - 1));
+      if (lane === prevLane) {
+        run++;
+        if (run >= 2) { lane = clamp(lane + (lane >= L - 1 ? -1 : 1), 0, L - 1); run = 0; }
+      } else run = 0;
+      const avg = (i + 0.5) / L;
+      if (cnt[lane] > avg * 1.35) {
+        let alt = lane, bc = 1e9;
+        for (let j = lane - 1; j <= lane + 1; j += 2) {
+          if (j < 0 || j >= L) continue;
+          if (cnt[j] < bc) { bc = cnt[j]; alt = j; }
+        }
+        if (bc * 1.15 < cnt[lane]) lane = alt;
+      }
+    }
+    cnt[lane]++;
+    prevLane = lane;
+    out.push({ t: c.t, lane: lane, type: c.s > 0.34 ? 'accent' : 'std', holdBeats: 0 });
+  }
+  injectHolds(out, D);
+  return out;
+}
+
+/* 长按注入：打分 + 时间片轮转（与主代码一致） */
+function injectHolds(notes, D) {
+  const N = notes.length;
+  if (!N) return notes;
+  const BEAT = D.beat, BAR = D.bar, CHART_END = D.chartEnd, L = D.lanes;
+  const nextSame = new Array(N), prevAny = new Array(N), nextAny = new Array(N);
+  const last = new Array(L).fill(Infinity);
+  for (let i = N - 1; i >= 0; i--) { nextSame[i] = last[notes[i].lane]; last[notes[i].lane] = notes[i].t; }
+  for (let i = 0; i < N; i++) {
+    prevAny[i] = i > 0 ? notes[i - 1].t : -1e9;
+    nextAny[i] = i + 1 < N ? notes[i + 1].t : Infinity;
+  }
+  const laneSet = new Set();
+  for (let i = 0; i < N; i++) laneSet.add(notes[i].lane);
+  const singleLane = laneSet.size <= 1;
+  const cntIn = (a, b) => {
+    let c = 0;
+    for (let j = 0; j < N; j++) {
+      const tj = notes[j].t;
+      if (tj < a) continue;
+      if (tj > b) break;
+      c++;
+    }
+    return c;
+  };
+  const cand = [];
+  for (let i = 0; i < N; i++) {
+    const nt = notes[i];
+    const bp = nt.t / BEAT, inBar = bp - Math.floor(bp / BAR_BEATS) * BAR_BEATS;
+    if (inBar > 3.4) continue;
+    const gapPrev = nt.t - prevAny[i];
+    const gapNext = nextAny[i] > 1e8 ? 3 : nextAny[i] - nt.t;
+    if (gapPrev < 0.2 || gapNext < 0.2) continue;
+    const room = Math.min(nextSame[i] - nt.t, 3.2);
+    let beats = 0;
+    if (room > BEAT * 2.5) beats = 2;
+    else if (room > BEAT + 0.28) beats = 1;
+    else if (singleLane && room > 0.64) beats = 0.5;
+    if (!beats) continue;
+    if (nt.type === 'accent' && beats < 1) continue;
+    const dur = beats * BEAT;
+    if (nt.t + dur > CHART_END - 0.4) continue;
+    if (nextSame[i] - nt.t < dur + 0.32) continue;
+    const winSec = dur + 0.84;
+    if ((cntIn(nt.t - 0.42, nt.t + dur + 0.42) - 1) / winSec > 3.5) continue;
+    if (cntIn(nt.t - 0.26, nt.t + 0.26) - 1 > 2) continue;
+    const w = Math.min(room, 2.6) * 1.3 + Math.min(gapPrev, 1.2) + Math.min(gapNext, 1.2);
+    cand.push({ i: i, beats: beats, score: nt.type === 'accent' ? w * 0.9 : w });
+  }
+  const SLICE = 10, PER_SLICE = 3;
+  const budget = Math.max(4, Math.round(N * 0.08));
+  const buckets = [];
+  for (let k = 0; k < cand.length; k++) {
+    const c = cand[k];
+    const s = Math.floor(notes[c.i].t / SLICE);
+    if (!buckets[s]) buckets[s] = [];
+    buckets[s].push(c);
+  }
+  for (let s = 0; s < buckets.length; s++) if (buckets[s]) buckets[s].sort((a, b) => b.score - a.score);
+  const picked = [];
+  const clash = (nt, dur) => {
+    for (let k = 0; k < picked.length; k++) {
+      const m = picked[k];
+      if (Math.abs(m.n.t - nt.t) < BAR - 0.002) return true;
+      if (nt.t < m.n.t + m.dur + 0.4 && nt.t + dur > m.n.t - 0.4) return true;
+    }
+    return false;
+  };
+  const takeFrom = (b, quota) => {
+    let got = 0;
+    for (let j = 0; j < b.length && got < quota; j++) {
+      const c = b[j], nt = notes[c.i], dur = c.beats * BEAT;
+      if (nt.type === 'hold') continue;
+      if (clash(nt, dur)) continue;
+      nt.type = 'hold'; nt.holdBeats = c.beats;
+      picked.push({ n: nt, dur: dur }); got++;
+    }
+    return got;
+  };
+  for (let round = 0; round < PER_SLICE && picked.length < budget; round++) {
+    for (let s = 0; s < buckets.length && picked.length < budget; s++) {
+      if (!buckets[s]) continue;
+      takeFrom(buckets[s], 1);
+    }
+  }
+  return notes;
+}
+
+/* ============================================================
+ * 2. 统计
+ * ============================================================ */
+function computeStats(notes, TL) {
+  const dt = TL.chartEnd;
+  const total = notes.length;
+  const laneCnt = new Array(P.lanes).fill(0);
+  const lastInLane = new Array(P.lanes).fill(-1e9);
+  let minGap = Infinity, minSame = Infinity, holds = 0, jacks = 0;
+  const gaps = [];
+  for (let i = 0; i < total; i++) {
+    const nt = notes[i];
+    laneCnt[nt.lane]++;
+    if (nt.type === 'hold') holds++;
+    if (i > 0) {
+      const g = nt.t - notes[i - 1].t;
+      gaps.push(g);
+      if (g < minGap) minGap = g;
+    }
+    const sg = nt.t - lastInLane[nt.lane];
+    if (sg < minSame) minSame = sg;
+    if (sg < 0.35) jacks++;
+    lastInLane[nt.lane] = nt.t;
+  }
+  gaps.sort((a, b) => a - b);
+  /* 1 秒窗峰值 */
+  let hi = 0, peak = 0, peakAt = 0;
+  for (let i = 0; i < total; i++) {
+    while (hi < total && notes[hi].t - notes[i].t < 1) hi++;
+    if (hi - i > peak) { peak = hi - i; peakAt = notes[i].t; }
+  }
+  /* 密度桶：0.5s，三点平滑，供总谱顶部曲线用 */
+  const BUCKET = 0.5;
+  const nb = Math.ceil(dt / BUCKET) + 1;
+  const raw = new Array(nb).fill(0);
+  for (let i = 0; i < total; i++) raw[Math.min(nb - 1, Math.floor(notes[i].t / BUCKET))]++;
+  const sm = new Array(nb).fill(0);
+  for (let i = 0; i < nb; i++) {
+    const a = raw[i > 0 ? i - 1 : i], b = raw[i], c = raw[i < nb - 1 ? i + 1 : i];
+    sm[i] = (a + b * 2 + c) / 4 / BUCKET;   /* 音符/秒 */
+  }
+  const medGap = gaps.length ? gaps[Math.floor(gaps.length * 0.5)] : 0;
+  return {
+    total: total, dur: dt, laneCnt: laneCnt, minGap: minGap, medGap: medGap,
+    minSame: minSame, holds: holds, jacks: jacks,
+    avg: total / dt, peak: peak, peakAt: peakAt, dens: sm, bucket: BUCKET
+  };
+}
+
+/* ============================================================
+ * 3. 状态 & 生成
+ * ============================================================ */
+let songId = 'summer';
+let diffKey = 'easy';
+let P = Object.assign({}, PRESETS.easy);
+let TL = CELLS[songId].timeline;
+let notes = [];
+let stat = null;
+let laneHex = [];
+let scan = { t: 0, playing: false, mult: 1, last: 0 };
+
+function laneColors(n) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const hue = n === 1 ? 42 : 40 + (150 * i) / (n - 1);
+    out.push('hsl(' + hue.toFixed(0) + ',66%,62%)');
+  }
+  return out;
+}
+
+function generate() {
+  TL = CELLS[songId].timeline;
+  const cells = CELLS[songId].cells.map(c => ({ t: c[0], s: c[1], p: c[2] }));
+  laneHex = laneColors(P.lanes);
+  notes = chartFromCells(cells, {
+    lanes: P.lanes, beat: TL.beat, bar: TL.bar, chartEnd: TL.chartEnd,
+    maxStep: P.maxStep, pull: P.pull
+  });
+  stat = computeStats(notes, TL);
+  if (scan.t > TL.chartEnd) scan.t = 0;
+  renderStats();
+  drawMap();
+  drawPreview();
+}
+
+/* ============================================================
+ * 4. 布局
+ * ============================================================ */
+const mapCv = $('#map'), mapCtx = mapCv.getContext('2d');
+const pvCv = $('#pv'), pvCtx = pvCv.getContext('2d');
+let MW = 0, MH = 0, PW = 0, PH = 0, DPR = 1;
+
+function fitCanvas(cv, ctx, w, h) {
+  DPR = window.devicePixelRatio || 1;
+  cv.width = Math.max(1, Math.round(w * DPR));
+  cv.height = Math.max(1, Math.round(h * DPR));
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+function layout() {
+  const mw = mapCv.clientWidth, mh = mapCv.clientHeight;
+  if (mw && mh) { MW = mw; MH = mh; fitCanvas(mapCv, mapCtx, mw, mh); }
+  const pw = pvCv.clientWidth, ph = pvCv.clientHeight;
+  if (pw && ph) { PW = pw; PH = ph; fitCanvas(pvCv, pvCtx, pw, ph); }
+}
+
+/* ============================================================
+ * 5. 总谱绘制
+ * ============================================================ */
+const MAP_PAD = { l: 58, r: 16, t: 76, b: 26 };
+
+const DENS_MIN = 64, DENS_GAP = 10, RULE_H = 24;
+
+function mapGeom() {
+  const x0 = MAP_PAD.l, x1 = MW - MAP_PAD.r;
+  const availH = MH - MAP_PAD.t - MAP_PAD.b;
+  /* 行高随轨道数伸缩（少轨 → 行更高、音符更饱满）；
+     轨道撑完后剩下的高度全给密度图，整块永远填满画布，不留空洞 */
+  const laneH = clamp((availH - DENS_MIN - DENS_GAP - RULE_H) / P.lanes, 18, 150);
+  const densH = clamp(availH - laneH * P.lanes - DENS_GAP - RULE_H, DENS_MIN, 150);
+  const shift = Math.max(0, (availH - (densH + DENS_GAP + laneH * P.lanes + RULE_H)) / 2);
+  const densTop = MAP_PAD.t + shift;
+  const densBot = densTop + densH;
+  const top = densBot + DENS_GAP;
+  const laneBottom = top + laneH * P.lanes;
+  return {
+    x0: x0, x1: x1, laneH: laneH, top: top, laneBottom: laneBottom,
+    densTop: densTop, densBot: densBot,
+    X: t => x0 + (t / TL.chartEnd) * (x1 - x0),
+    CY: i => top + laneH * (i + 0.5)
+  };
+}
+
+function drawMap() {
+  const c = mapCtx, W = MW, H = MH;
+  if (!W || !H) return;
+  c.clearRect(0, 0, W, H);
+  const g = mapGeom();
+  const x0 = g.x0, x1 = g.x1, laneH = g.laneH, top = g.top;
+  const laneBottom = g.laneBottom;
+
+  /* --- 顶部密度曲线 --- */
+  const densTop = g.densTop, densBot = g.densBot;
+  const maxD = (() => {
+    let m = 1;
+    for (let i = 0; i < stat.dens.length; i++) if (stat.dens[i] > m) m = stat.dens[i];
+    return m;
+  })();
+  c.save();
+  c.beginPath();
+  c.moveTo(x0, densBot);
+  for (let i = 0; i < stat.dens.length; i++) {
+    const t = i * stat.bucket;
+    if (t > TL.chartEnd) break;
+    const y = densBot - (stat.dens[i] / maxD) * (densBot - densTop);
+    c.lineTo(g.X(t), y);
+  }
+  c.lineTo(g.X(TL.chartEnd), densBot);
+  c.closePath();
+  const grad = c.createLinearGradient(0, densTop, 0, densBot);
+  grad.addColorStop(0, 'rgba(242,179,61,.30)');
+  grad.addColorStop(1, 'rgba(242,179,61,.02)');
+  c.fillStyle = grad;
+  c.fill();
+  /* 刻度线：25% / 50% / 75% */
+  c.strokeStyle = 'rgba(255,255,255,.07)';
+  c.lineWidth = 1;
+  for (let q = 0.25; q < 1; q += 0.25) {
+    const y = densBot - q * (densBot - densTop);
+    c.beginPath(); c.moveTo(x0, y); c.lineTo(x1, y); c.stroke();
+  }
+  c.strokeStyle = 'rgba(242,179,61,.62)';
+  c.lineWidth = 1;
+  c.stroke();
+  const labTxt = '峰值密度 ' + maxD.toFixed(1) + ' 音符/秒';
+  c.font = '10px ui-monospace,Menlo,monospace';
+  const lw = c.measureText(labTxt).width;
+  c.fillStyle = 'rgba(16,13,18,.78)';
+  c.fillRect(x1 - lw - 12, densTop - 2, lw + 10, 15);
+  c.fillStyle = 'rgba(154,140,156,.9)';
+  c.textAlign = 'right';
+  c.fillText(labTxt, x1 - 6, densTop + 9);
+  c.restore();
+
+  /* --- 轨道底色 --- */
+  for (let i = 0; i < P.lanes; i++) {
+    const y = top + laneH * i;
+    c.fillStyle = i % 2 ? 'rgba(255,255,255,.018)' : 'rgba(255,255,255,.035)';
+    c.fillRect(x0, y, x1 - x0, laneH);
+    c.strokeStyle = 'rgba(255,255,255,.045)';
+    c.lineWidth = 1;
+    c.beginPath(); c.moveTo(x0, y); c.lineTo(x1, y); c.stroke();
+    /* 轨标签 */
+    const kc = P.keys[i] || '';
+    c.fillStyle = laneHex[i];
+    c.font = '600 11px -apple-system,"PingFang SC",sans-serif';
+    c.textAlign = 'center';
+    c.fillText(kc, x0 - 30, g.CY(i) + 4);
+    c.fillStyle = 'rgba(154,140,156,.9)';
+    c.font = '10px ui-monospace,Menlo,monospace';
+    c.textAlign = 'right';
+    c.fillText(String(i + 1), x0 - 9, g.CY(i) + 3.5);
+  }
+  c.strokeStyle = 'rgba(255,255,255,.06)';
+  c.beginPath(); c.moveTo(x0, laneBottom); c.lineTo(x1, laneBottom); c.stroke();
+
+  /* --- 小节线 --- */
+  const BAR = TL.bar;
+  c.textAlign = 'center';
+  for (let b = 0; b * BAR <= TL.chartEnd; b++) {
+    const x = g.X(b * BAR);
+    const strong = b % 4 === 0;
+    c.strokeStyle = strong ? 'rgba(255,255,255,.15)' : 'rgba(255,255,255,.055)';
+    c.beginPath();
+    c.moveTo(x, top);
+    c.lineTo(x, laneBottom + (strong ? 6 : 3));
+    c.stroke();
+  }
+  /* --- 时间刻度：每 15 秒 --- */
+  c.fillStyle = 'rgba(154,140,156,.8)';
+  c.font = '10px ui-monospace,Menlo,monospace';
+  for (let ts = 0; ts <= TL.chartEnd; ts += 15) {
+    const x = g.X(ts);
+    c.beginPath();
+    c.strokeStyle = 'rgba(255,255,255,.22)';
+    c.moveTo(x, laneBottom + 8); c.lineTo(x, laneBottom + 12); c.stroke();
+    c.textAlign = ts === 0 ? 'left' : 'center';
+    c.fillText(ts + 's', x, laneBottom + 23);
+  }
+
+  /* --- 音符 --- */
+  const span = x1 - x0, dur = TL.chartEnd;
+  for (let i = 0; i < notes.length; i++) {
+    const nt = notes[i];
+    const x = g.X(nt.t);
+    const cy = g.CY(nt.lane);
+    const h = clamp(laneH * 0.46, 6, 44);
+    if (nt.type === 'hold') {
+      const w = Math.max(3, (nt.holdBeats * TL.beat / dur) * span);
+      c.fillStyle = laneHex[nt.lane];
+      c.globalAlpha = 0.5;
+      c.fillRect(x, cy - h * 0.3, w, h * 0.6);
+      c.globalAlpha = 1;
+      c.fillStyle = '#EAF6EF';
+      c.fillRect(x, cy - h / 2, Math.max(2.2, h * 0.16), h);
+    } else if (nt.type === 'accent') {
+      c.fillStyle = '#FFD98A';
+      c.fillRect(x - 1, cy - h / 2, 3, h);
+    } else {
+      c.fillStyle = laneHex[nt.lane];
+      c.globalAlpha = 0.88;
+      c.fillRect(x - 1, cy - h / 2, 2, h);
+      c.globalAlpha = 1;
+    }
+  }
+
+  /* --- 播放头 + 可视窗 --- */
+  const tNow = scan.t;
+  const speedNow = P.speed * (1 + (P.speedEnd - 1) * clamp(tNow / dur, 0, 1));
+  const visSec = TRAVEL / speedNow;
+  const bx = g.X(tNow);
+  const bw = Math.max(2.5, (visSec / dur) * span);
+  c.save();
+  const bg = c.createLinearGradient(bx, 0, bx + bw, 0);
+  bg.addColorStop(0, 'rgba(255,255,255,.20)');
+  bg.addColorStop(1, 'rgba(255,255,255,0)');
+  c.fillStyle = bg;
+  c.fillRect(bx, top - 6, bw, laneBottom - top + 6);
+  c.strokeStyle = 'rgba(255,255,255,.95)';
+  c.lineWidth = 1.4;
+  c.beginPath(); c.moveTo(bx, densTop - 2); c.lineTo(bx, laneBottom + 8); c.stroke();
+  c.fillStyle = 'rgba(255,255,255,.9)';
+  c.beginPath();
+  c.moveTo(bx, densTop - 4);
+  c.lineTo(bx - 4, densTop - 10);
+  c.lineTo(bx + 4, densTop - 10);
+  c.closePath(); c.fill();
+  c.restore();
+}
+
+/* ============================================================
+ * 6. 落点预览（按设计速度真实下落）
+ * ============================================================ */
+function drawPreview() {
+  const c = pvCtx, W = PW, H = PH;
+  if (!W || !H) return;
+  c.clearRect(0, 0, W, H);
+  const L = P.lanes;
+  const laneW = W / L;
+  const jy = H - 44;
+  const tNow = scan.t;
+  const prog = clamp(tNow / TL.chartEnd, 0, 1);
+  const speed = P.speed * (1 + (P.speedEnd - 1) * prog);
+  const visSec = jy / speed;
+
+  /* 轨道 */
+  for (let i = 0; i < L; i++) {
+    c.fillStyle = i % 2 ? 'rgba(255,255,255,.02)' : 'rgba(255,255,255,.04)';
+    c.fillRect(i * laneW, 0, laneW, H);
+    c.strokeStyle = 'rgba(255,255,255,.05)';
+    c.beginPath(); c.moveTo(i * laneW, 0); c.lineTo(i * laneW, H); c.stroke();
+  }
+  /* 判定线 */
+  const jg = c.createLinearGradient(0, jy - 26, 0, jy + 26);
+  jg.addColorStop(0, 'rgba(242,179,61,0)');
+  jg.addColorStop(.5, 'rgba(242,179,61,.22)');
+  jg.addColorStop(1, 'rgba(242,179,61,0)');
+  c.fillStyle = jg;
+  c.fillRect(0, jy - 26, W, 52);
+  c.strokeStyle = 'rgba(255,231,186,.9)';
+  c.lineWidth = 1.6;
+  c.beginPath(); c.moveTo(0, jy); c.lineTo(W, jy); c.stroke();
+
+  /* 音符：只在窗口内的画 */
+  const hitBand = 0.05;
+  for (let i = 0; i < notes.length; i++) {
+    const nt = notes[i];
+    const dtn = nt.t - tNow;
+    if (dtn > visSec || dtn < -0.4) continue;
+    const x = nt.lane * laneW + laneW / 2;
+    const y = jy - dtn * speed;
+    const w = Math.min(46, Math.max(10, laneW * 0.46));
+    const h = Math.max(4, Math.min(9, laneW * 0.2));
+    const near = Math.abs(dtn) < hitBand;
+    c.fillStyle = near ? '#FFFFFF' : (nt.type === 'accent' ? '#FFD98A' : laneHex[nt.lane]);
+    if (nt.type === 'hold') {
+      const tail = jy - (dtn + nt.holdBeats * TL.beat) * speed;
+      c.globalAlpha = 0.28;
+      c.fillRect(x - w * 0.36, tail, w * 0.72, y - tail);
+      c.globalAlpha = 1;
+      c.fillStyle = '#EAF6EF';
+    }
+    c.globalAlpha = near ? 1 : 0.92;
+    c.beginPath();
+    const r = Math.min(4, h / 2);
+    c.roundRect ? c.roundRect(x - w / 2, y - h / 2, w, h, r) : c.rect(x - w / 2, y - h / 2, w, h);
+    c.fill();
+    c.globalAlpha = 1;
+  }
+
+  /* 键位 */
+  c.textAlign = 'center';
+  c.font = '600 12px -apple-system,"PingFang SC",sans-serif';
+  for (let i = 0; i < L; i++) {
+    c.fillStyle = 'rgba(255,255,255,.06)';
+    c.fillRect(i * laneW + 3, jy + 8, laneW - 6, 20);
+    c.fillStyle = laneHex[i];
+    c.fillText(P.keys[i] || '', i * laneW + laneW / 2, jy + 22.5);
+  }
+  c.fillStyle = 'rgba(154,140,156,.85)';
+  c.font = '10px ui-monospace,Menlo,monospace';
+  c.textAlign = 'left';
+  c.fillText(Math.round(speed) + ' px/s · 1:1 实速 · 窗口 ' + visSec.toFixed(2) + 's', 6, 12);
+}
+
+/* ============================================================
+ * 7. 走时 + 节拍器
+ * ============================================================ */
+let ac = null, lastBeat = -1;
+function ensureAudio() {
+  if (!ac) {
+    try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { ac = null; }
+  }
+  if (ac && ac.state === 'suspended') ac.resume();
+}
+function click(accent) {
+  if (!ac || ac.state !== 'running') return;
+  const t0 = ac.currentTime;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = 'square';
+  o.frequency.setValueAtTime(accent ? 1480 : 990, t0);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(accent ? 0.085 : 0.05, t0 + 0.004);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + (accent ? 0.075 : 0.05));
+  o.connect(g).connect(ac.destination);
+  o.start(t0); o.stop(t0 + 0.09);
+}
+
+let lastTs = 0;
+function loop(ts) {
+  requestAnimationFrame(loop);
+  const dt = lastTs ? Math.min(80, ts - lastTs) : 16;
+  lastTs = ts;
+  if (scan.playing) {
+    scan.t += (dt / 1000) * scan.mult;
+    if (scan.t >= TL.chartEnd) { scan.t = 0; lastBeat = -1; }
+    /* 节拍器：跨过拍点就响一下，小节首拍重音 */
+    const bi = Math.floor(scan.t / TL.beat);
+    if (bi !== lastBeat) {
+      lastBeat = bi;
+      click(bi % BAR_BEATS === 0);
+    }
+  }
+  drawMap();
+  drawPreview();
+  updateScanInfo();
+}
+
+function updateScanInfo() {
+  const t = scan.t;
+  const prog = clamp(t / TL.chartEnd, 0, 1);
+  const pf = $('#pfill'), pk = $('#pknob');
+  pf.style.width = (prog * 100).toFixed(3) + '%';
+  pk.style.left = (prog * 100).toFixed(3) + '%';
+  const speed = P.speed * (1 + (P.speedEnd - 1) * prog);
+  const mm = Math.floor(t / 60), ss = t - mm * 60;
+  $('#scaninfo').innerHTML =
+    '<b style="color:#fff">' + (scan.playing ? '▶' : '❚❚') + '</b> ' +
+    mm + ':' + (ss < 10 ? '0' : '') + ss.toFixed(1) + ' / ' +
+    Math.floor(TL.chartEnd / 60) + ':' + (TL.chartEnd % 60 < 10 ? '0' : '') + (TL.chartEnd % 60).toFixed(1) +
+    ' ｜ 当前 <b style="color:#F2B33D">' + Math.round(speed) + '</b> px/s';
+}
+
+/* ============================================================
+ * 8. UI
+ * ============================================================ */
+function renderKeys() {
+  const row = $('#keyrow');
+  row.innerHTML = '';
+  P.keys.forEach((k, i) => {
+    const s = document.createElement('span');
+    s.className = 'key';
+    s.textContent = k;
+    s.style.color = laneHex[i] || '#fff';
+    s.style.borderColor = (laneHex[i] || '#fff').replace('hsl', 'hsla').replace(')', ',.55)');
+    row.appendChild(s);
+  });
+  row.title = P.keys.length + ' 键';
+}
+
+function renderStats() {
+  const s = stat;
+  $('#hud-count').textContent = fmt(s.total);
+  $('#hud-nps').textContent = s.avg.toFixed(2);
+  $('#hud-peak').textContent = s.peak;
+  $('#k-total').textContent = fmt(s.total);
+  $('#k-dur').textContent = Math.floor(s.dur / 60) + ':' + String(Math.round(s.dur % 60)).padStart(2, '0');
+  $('#k-avg').textContent = s.avg.toFixed(2);
+  $('#k-peak').textContent = s.peak + ' @' + s.peakAt.toFixed(0) + 's';
+  $('#k-mingap').textContent = Math.round((s.minGap === Infinity ? 0 : s.minGap) * 1000) + 'ms';
+  $('#k-mingapsame').textContent = Math.round((s.minSame === Infinity ? 0 : s.minSame) * 1000) + 'ms';
+  $('#k-holds').textContent = s.holds + '（' + (s.total ? (s.holds / s.total * 100).toFixed(0) : 0) + '%）';
+  $('#k-jack').textContent = s.total ? (s.jacks / s.total * 100).toFixed(0) + '%' : '0%';
+
+  /* 每轨分布 */
+  const bars = $('#lanebars');
+  bars.innerHTML = '';
+  const maxc = Math.max.apply(null, s.laneCnt.concat([1]));
+  s.laneCnt.forEach((n, i) => {
+    const row = document.createElement('div');
+    row.className = 'bar';
+    row.innerHTML = '<span class="k" style="color:' + laneHex[i] + '">' + (P.keys[i] || '') + '</span>' +
+      '<span class="track"><span class="fill" style="width:' + (n / maxc * 100).toFixed(1) + '%;background:' + laneHex[i] + '"></span></span>' +
+      '<span class="n">' + n + '</span>';
+    bars.appendChild(row);
+  });
+
+  /* 速度/密度读数 */
+  const endSpd = P.speed * P.speedEnd;
+  $('#v-speed').textContent = P.speed;
+  $('#v-end').textContent = P.speedEnd.toFixed(2) + '×';
+  $('#k-endspd').textContent = Math.round(endSpd) + ' px/s';
+  $('#k-vis').textContent = (TRAVEL / P.speed).toFixed(2) + 's → ' + (TRAVEL / endSpd).toFixed(2) + 's';
+  $('#k-px').textContent = Math.round(P.speed * 0.3) + 'px → ' + Math.round(endSpd * 0.3) + 'px';
+  $('#v-lanes').textContent = P.lanes + ' 轨';
+  $('#v-step').textContent = P.maxStep + ' 槽';
+  $('#v-pull').textContent = P.pull.toFixed(2);
+  const slotMs = TL.beat / 2 * 1000;
+  $('#k-gapquiet').textContent = Math.round(P.maxStep * slotMs) + 'ms';
+  const dense = Math.max(1, Math.min(P.maxStep, Math.round(P.maxStep - (P.maxStep - 1) - P.pull)));
+  $('#k-gapdense').textContent = Math.round(dense * slotMs) + 'ms';
+  $('#pv-speed').textContent = Math.round(P.speed) + ' → ' + Math.round(endSpd) + ' px/s';
+
+  $('#s-speed').value = P.speed;
+  $('#s-end').value = P.speedEnd;
+  $('#s-lanes').value = P.lanes;
+  $('#s-step').value = P.maxStep;
+  $('#s-pull').value = P.pull;
+
+  renderCfg();
+}
+
+function renderCfg() {
+  const D2 = {
+    lanes: P.lanes, keys: P.keys.join(' '),
+    speed: P.speed, speedEnd: +P.speedEnd.toFixed(2),
+    maxStep: P.maxStep, pull: +P.pull.toFixed(2)
+  };
+  $('#cfg').textContent =
+    diffKey + ': { lanes: ' + D2.lanes + ', keys: [' + D2.keys + '],\n' +
+    '  speed: ' + D2.speed + ', speedEnd: ' + D2.speedEnd.toFixed(2) + ',\n' +
+    '  maxStep: ' + D2.maxStep + ', pull: ' + D2.pull.toFixed(2) + ' }';
+}
+
+function renderCmp() {
+  const tb = $('#cmptable');
+  tb.innerHTML = '';
+  ['easy', 'hard', 'nightmare'].forEach(k => {
+    const lv = LIVE[k], nv = PRESETS[k];
+    const tr = document.createElement('tr');
+    if (k === diffKey) tr.className = 'cur';
+    tr.innerHTML = '<td>' + nv.label + '</td><td>' + nv.keys.join('') + '</td>' +
+      '<td>' + lv.speed + '→' + nv.speed + '</td>' +
+      '<td>' + Math.round(lv.speed * lv.speedEnd) + '→' + Math.round(nv.speed * nv.speedEnd) + '</td>';
+    tb.appendChild(tr);
+  });
+}
+
+function applyPreset(k) {
+  diffKey = k;
+  P = Object.assign({}, PRESETS[k]);
+  P.keys = PRESETS[k].keys.slice();
+  laneHex = laneColors(P.lanes);
+  document.querySelectorAll('[data-diff]').forEach(b => b.classList.toggle('on', b.dataset.diff === k));
+  renderKeys();
+  renderCmp();
+  generate();
+}
+
+/* ---- 事件绑定 ---- */
+document.querySelectorAll('[data-song]').forEach(b => {
+  b.onclick = () => {
+    songId = b.dataset.song;
+    document.querySelectorAll('[data-song]').forEach(x => x.classList.toggle('on', x === b));
+    scan.t = 0; lastBeat = -1;
+    generate();
+  };
+});
+document.querySelectorAll('[data-diff]').forEach(b => {
+  b.onclick = () => applyPreset(b.dataset.diff);
+});
+
+function bindSlider(sel, key, cast) {
+  $(sel).addEventListener('input', e => {
+    P[key] = cast ? cast(e.target.value) : +e.target.value;
+    if (key === 'lanes') { P.keys = PRESETS[P.lanes === 2 ? 'easy' : P.lanes === 4 ? 'hard' : 'nightmare'].keys; renderKeys(); }
+    generate();
+  });
+}
+bindSlider('#s-speed', 'speed');
+bindSlider('#s-end', 'speedEnd');
+bindSlider('#s-lanes', 'lanes');
+bindSlider('#s-step', 'maxStep');
+bindSlider('#s-pull', 'pull');
+
+mapCv.addEventListener('pointerdown', e => {
+  const r = mapCv.getBoundingClientRect();
+  const g = mapGeom();
+  const x = e.clientX - r.left;
+  if (x < g.x0) return;
+  scan.t = clamp((x - g.x0) / (g.x1 - g.x0), 0, 1) * TL.chartEnd;
+  lastBeat = Math.floor(scan.t / TL.beat);
+  drawMap(); drawPreview(); updateScanInfo();
+});
+
+function toggleScan() {
+  ensureAudio();
+  scan.playing = !scan.playing;
+  if (scan.playing) lastBeat = Math.floor(scan.t / TL.beat) - 1;
+  say(scan.playing ? '扫描开始' : '已暂停');
+}
+function say(t) {
+  let n = $('#say');
+  if (!n) { n = document.createElement('div'); n.id = 'say';
+    n.style.cssText = 'position:fixed;left:50%;bottom:62px;transform:translateX(-50%);padding:6px 14px;border-radius:999px;background:rgba(20,16,24,.92);border:1px solid rgba(242,179,61,.35);color:#F3EADD;font-size:12px;pointer-events:none;transition:opacity .3s;z-index:9';
+    document.body.appendChild(n);
+  }
+  n.textContent = t; n.style.opacity = '1';
+  clearTimeout(say._t); say._t = setTimeout(() => { n.style.opacity = '0'; }, 1100);
+}
+
+$('#btn-copy').onclick = () => {
+  const txt = $('#cfg').textContent;
+  const ok = () => { $('#btn-copy').textContent = '已复制'; say('参数已复制'); setTimeout(() => { $('#btn-copy').textContent = '复制 DIFFS 片段'; }, 1400); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(ok, ok);
+  else ok();
+};
+$('#btn-reset').onclick = () => applyPreset(diffKey);
+
+/* 进度条：点击/拖拽跳转 */
+(function () {
+  const bar = $('#pbar');
+  let dragging = false;
+  const seekTo = clientX => {
+    const r = bar.getBoundingClientRect();
+    scan.t = clamp((clientX - r.left) / r.width, 0, 1) * TL.chartEnd;
+    lastBeat = Math.floor(scan.t / TL.beat);
+  };
+  bar.addEventListener('pointerdown', e => {
+    dragging = true; bar.setPointerCapture(e.pointerId); seekTo(e.clientX);
+  });
+  bar.addEventListener('pointermove', e => { if (dragging) seekTo(e.clientX); });
+  bar.addEventListener('pointerup', e => { dragging = false; try { bar.releasePointerCapture(e.pointerId); } catch (err) {} });
+})();
+
+/* 倍速按钮：直接改 scan.mult（1x 才是真实手感） */
+(function () {
+  const holder = document.createElement('div');
+  holder.className = 'btnrow';
+  ['0.5×', '1×', '2×'].forEach((lb, i) => {
+    const b = document.createElement('button');
+    b.className = 'btn' + (i === 1 ? ' primary' : '');
+    b.textContent = lb;
+    b.onclick = () => {
+      scan.mult = [0.5, 1, 2][i];
+      holder.querySelectorAll('.btn').forEach(x => x.classList.toggle('primary', x === b));
+      say(i === 1 ? '1× 真实手感' : lb + ' 仅供快速查看');
+    };
+    holder.appendChild(b);
+  });
+  $('#k-px').parentNode.parentNode.appendChild(holder);
+})();
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.code === 'Space') { e.preventDefault(); toggleScan(); }
+  else if (e.code === 'KeyR') { scan.t = 0; lastBeat = -1; drawMap(); drawPreview(); }
+  else if (e.code === 'Digit1' || e.code === 'Digit2' || e.code === 'Digit3') {
+    applyPreset(['easy', 'hard', 'nightmare'][+e.code.slice(-1) - 1]);
+  }
+});
+
+/* ============================================================
+ * 9. 启动
+ * ============================================================ */
+function boot() {
+  document.querySelector('[data-song="summer"]').classList.add('on');
+  applyPreset('easy');
+  layout();
+  generate();
+  requestAnimationFrame(loop);
+}
+window.addEventListener('resize', () => { layout(); drawMap(); drawPreview(); });
+/* 自动化测试钩子 */
+window.__lab = {
+  get notes() { return notes; }, get stat() { return stat; }, get P() { return P; },
+  get TL() { return TL; }, scan: scan, mapGeom: mapGeom
+};
+boot();
+})();
+</script>
+</body>
+</html>

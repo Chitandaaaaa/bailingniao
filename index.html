@@ -3661,6 +3661,7 @@ function drawComboScreenArt(c,t,k1,k2,k3,k4,k5){
 function drawFx(){
   const c=ctxFx,t=now();
   c.clearRect(0,0,STAGE_W,STAGE_H);
+  if(G.state==='TITLE'||G.state==='BOOT')return;   /* 标题界面不画任何战斗特效 */
   c.globalCompositeOperation='lighter';
   drawComboAura(c,t);
   /* 粒子 */
@@ -3970,8 +3971,29 @@ function togglePause(auto){
     say('继续');
   }
 }
+/* 收尾：把一局残留的视觉状态全部收干净。
+   之前只清 canvas 不清 body 上的连击档位类，导致从噩梦作弊局（连击 400+ → tier5）
+   返回标题后，全屏合成层（光芒 / 棱镜 / 等离子 / 火雨）还挂在背景上继续转。 */
+function clearRunFx(){
+  G.combo=0;G.tier=0;G.tierS=0;lastTierCls=0;
+  const b=document.body;
+  b.classList.remove('tier1','tier2','tier3','tier4','tier5');
+  const cfh=$('#cf-hit');if(cfh)cfh.style.opacity='0';
+  for(let i=0;i<PART_MAX;i++)G.parts[i].live=false;
+  G.partIdx=0;
+  G.rings.length=0;G.flashes.length=0;G.msFx=null;
+  G.laneFx=[[],[],[],[],[]];
+  G.judgeGlow=0;G.comboPulse=0;G.kickZoom=0;G.auraRing=-1;G.prismRing=-1;
+  G.riseAcc=0;G.flameAcc=0;G.riseLastX=null;G.flameLastX=null;
+  G.shake={t0:0,amp:0,dur:0};G.shakeAdd={t0:0,amp:0,dur:0,freq:34};
+  const sg=$('#stage');if(sg)sg.style.transform='';
+  const hudc=$('#hud-combo');if(hudc)hudc.classList.remove('tier1','tier2','tier3','tier4','tier5');
+  const cvv=$('#combo-val');if(cvv)cvv.classList.remove('hot','blazing','kick5');
+  if(ctxFx)ctxFx.clearRect(0,0,STAGE_W,STAGE_H);
+}
 function toTitle(){
   Sound.stop();
+  clearRunFx();
   G.state='TITLE';
   setState('TITLE');
   refreshBest();
