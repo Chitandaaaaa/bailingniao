@@ -85,7 +85,17 @@
     background:linear-gradient(180deg,#151118,#100d12);border:1px solid var(--line);
     cursor:crosshair}
 
-  /* ---------- 视图切换 ---------- */
+  /* ---------- 音乐开关 ---------- */
+$('#mus-btn').onclick = () => {
+  musOn = !musOn;
+  $('#mus-btn').textContent = musOn ? '♪ 音乐 开' : '♪ 音乐 关';
+  $('#mus-btn').classList.toggle('on', musOn);
+  if (!musOn) musicStop();
+  else if (scan.playing) musicStart();
+  say(musOn ? '音乐开' : '音乐关（节拍器替代）');
+};
+
+/* ---------- 视图切换 ---------- */
   .tabs{display:flex;gap:4px}
   .view{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}
   .view.hide{display:none}
@@ -128,6 +138,13 @@
   .pv-card:fullscreen #pv{flex:1 1 auto;height:auto;min-height:0;border:0}
 
   /* ---------- 编辑面板 ---------- */
+  .seg{display:flex;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{background:transparent;border:0;color:var(--dim);font-size:12px;padding:4px 12px;
+    cursor:pointer;font-family:inherit;transition:.14s}
+  .seg button+button{border-left:1px solid var(--line)}
+  .seg button.on{background:rgba(242,179,61,.18);color:var(--gold)}
+  .seg button:hover{color:#fff}
+
   .edrow{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:2px 0 8px}
   .edrow span{font-size:12.5px;color:#cfc3d0}
   .sw{width:36px;height:19px;border-radius:10px;background:rgba(255,255,255,.12);
@@ -235,8 +252,7 @@
         <span><i style="background:#FFD98A"></i>重音</span>
         <span><i style="background:#63D9A6;width:14px;border-radius:3px"></i>长按</span>
         <span><i style="background:#FFFFFF"></i>手工加</span>
-        <span><i style="background:#FFC95C;transform:rotate(45deg);width:7px;height:7px"></i>踩音点</span>
-        <span><i style="background:rgba(99,217,166,.55)"></i>空档</span>
+        <span><i style="background:#FFC95C;transform:rotate(45deg);width:7px;height:7px"></i>可加点</span>
       </span>
       <span class="legend" id="legend-wide" style="display:none">
         <span><i style="background:#F2B33D"></i>重音</span>
@@ -245,6 +261,7 @@
         <span><i style="background:rgba(255,255,255,.18)"></i>小节线</span>
       </span>
       <span class="legend" style="margin-left:auto" id="zoomctl">
+        <button class="chip mini on" id="mus-btn" title="播放时同步放音乐">♪ 音乐 开</button>
         <span style="color:var(--dim)">缩放</span>
         <input type="range" id="s-pps" min="24" max="180" step="4" style="width:96px">
         <b class="mono" id="v-pps" style="color:var(--gold);font-size:11.5px">—</b>
@@ -336,17 +353,20 @@
         <div class="sw" id="ed-sw"></div>
       </div>
       <div class="edrow" style="margin-top:2px">
-        <span>同时显示「太挤」的点位（粉）</span>
-        <div class="sw" id="tight-sw"></div>
+        <span>点一下放入</span>
+        <div class="seg" id="ed-tool">
+          <button class="on" data-tool="tap">单点</button>
+          <button data-tool="hold">长条</button>
+        </div>
       </div>
       <div class="edlegend">
-        <span><i style="background:#FFC95C;transform:rotate(45deg);width:7px;height:7px"></i>踩音点</span>
-        <span><i style="background:rgba(99,217,166,.6)"></i>空档</span>
-        <span><i style="background:rgba(255,138,216,.6)"></i>太挤</span>
+        <span><i style="background:#FFC95C;transform:rotate(45deg);width:7px;height:7px"></i>可加点（原曲有音）</span>
       </div>
       <div class="edinfo" id="ed-info">
-        开着编辑模式时，长卷上会标出所有<b class="ok">可加点</b>（八分音符网格 × 每条轨道，扣掉已有音符）。
-        点空点=加一个，点已有音符=删掉。改动会实时进统计和预览。
+        编辑模式只标<b class="ok">原曲真有声音</b>、但这版谱面没打的拍点（金菱形）。
+        点金点=加一个音；点已有音符=删掉它。<br>
+        想加长条：切到<b class="ok">长条</b>，在起点<b class="ok">按住往下拖</b>再松手，拖多长就是多长的长按；
+        轻点不动 = 默认 2 拍。长按只认「头」踩音，尾巴可以拖过空拍。
       </div>
       <div class="btnrow">
         <button class="btn" id="ed-undo">撤销</button>
@@ -358,9 +378,10 @@
     <div class="card">
       <h3>加音符的规则</h3>
       <p class="note">
-        <b>能加，但不是随便加。</b> 这套谱面是从音频起音点挑出来的，所以手加的音符一旦偏离网格就会和音乐脱节。
-        上限来自四件事：<br>
-        ① <b>八分音符网格</b>——槽宽 <span class="mono" id="rule-slot">—</span>ms，同一个槽只能一个音；<br>
+        <b>能加，但只能在原曲真有声音的地方加。</b> 所以编辑模式只画「原曲有起音、谱面没打」的金点，
+        点到没有声音的空格会直接被拒绝 —— 那种音按下去，玩家听不到对应声音，就是空按。
+        可加点还要同时满足：<br>
+        ① <b>必须是原曲起音</b>——力度 ≥ 0.3 的才算（值太低的过门音不提），八分槽宽 <span class="mono" id="rule-slot">—</span>ms 内只放一个；<br>
         ② <b>同轨最小间隔</b>——<span class="mono" id="rule-same">—</span>ms，低于这个值一根手指按不回来；<br>
         ③ <b>长按占位</b>——长按期间同轨不能再落点；<br>
         ④ <b>可视密度</b>——本难度最快处 <span class="mono" id="rule-nps">—</span> 音/秒。
@@ -502,6 +523,7 @@ function chartFromCells(cells, D) {
   }
   taken.sort((a, b) => a.t - b.t);
   lastPicked = taken.map(c => c.t);   /* 谱面实际用到的起音点，供「未用起音」判定 */
+  lastPickedPitch = taken.map(c => c.p);
 
   const L = D.lanes;
   const multi = L > 1;
@@ -697,14 +719,17 @@ let scan = { t: 0, playing: false, mult: 1, last: 0 };
 let view = 'roll';
 const roll = { t0: 0, pps: 72, follow: true };
 let editOn = false;
-let userAdds = [];      /* {t, lane} 手工加的音符 */
+let userAdds = [];      /* {t, lane, type:'std'|'hold', hb} 手工加的音符 */
 let userDels = [];      /* {t, lane} 手工删掉的音符 */
 let editHist = [];      /* 编辑快照，用于撤销 */
-let cands = [];         /* 可加点，按 t 排序 */
-let showTight = false;  /* 是否显示「太挤」的候选点 */
+let cands = [];         /* 可加点（只含原曲真实起音），按 t 排序 */
+let edTool = 'tap';     /* tap | hold */
 let curCells = [];      /* 当前曲目的原始起音点时间 */
+let curCellData = [];   /* 当前曲目的起音点（含音高/力度），供音乐与候选共用 */
 let lastPicked = [];    /* 谱面实际采用的起音点 */
+let lastPickedPitch = [];/* 谱面实际采用的音高，供候选算「天生轨道」 */
 const MIN_SAME = 0.20;  /* 同轨最小间隔（一根手指的物理下限，秒） */
+const CAND_MIN_VEL = 0.30; /* 只提示力度够的起音（原曲力度中位数约 0.26） */
 
 const lowerBoundT = (arr, v) => {
   let lo = 0, hi = arr.length;
@@ -723,82 +748,100 @@ function applyEdits() {
     }
   }
   for (let a = 0; a < userAdds.length; a++) {
-    if (userAdds[a].lane >= P.lanes) continue;
-    notes.push({ t: userAdds[a].t, lane: userAdds[a].lane, type: 'std', holdBeats: 0, user: true });
+    const u = userAdds[a];
+    if (u.lane >= P.lanes) continue;
+    const isHold = u.type === 'hold' && u.hb > 0;
+    notes.push({ t: u.t, lane: u.lane, type: isHold ? 'hold' : 'std', holdBeats: isHold ? u.hb : 0, user: true });
   }
   /* 轨道数被调小时，丢掉越界的音符，避免索引 undefined */
   notes = notes.filter(n => n.lane < P.lanes);
   notes.sort((x, y) => x.t - y.t || x.lane - y.lane);
 }
 
-/* 可加点 = 八分音符网格 × 每条轨道 − 已有音符 − 长按占位 */
+/* 可加点 = 原曲里真实存在、但这版谱面没打出来的起音。
+ * 只有这种点才「踩得上节奏」；只是落在网格上、原曲没声音的格子一律不给。
+ * 每个起音按音高在谱面音高分布里的分位推出「天生该待的轨道」，
+ * 那条轨道放不下就顺延到邻轨；仍放不下就丢掉。 */
 function buildCands() {
   const SLOT = TL.beat / 2;
-  const byLane = [], holds = [];
-  for (let i = 0; i < P.lanes; i++) byLane.push([]);
-  for (let i = 0; i < notes.length; i++) {
-    const n = notes[i];
-    if (n.lane < P.lanes) byLane[n.lane].push(n.t);
-    if (n.type === 'hold') holds.push([n.t, n.t + n.holdBeats * TL.beat]);
-  }
-  byLane.forEach(a => a.sort((x, y) => x - y));
-  /* 原曲里有、但这版谱面没打出来的起音 —— 这些才是真正「可以补」的音 */
   const used = new Set(lastPicked.map(t => t.toFixed(3)));
-  const spare = curCells.filter(t => !used.has(t.toFixed(3))).sort((x, y) => x - y);
+  const ps = lastPickedPitch.slice().sort((a, b) => a - b);
+  const rankOf = p => {
+    if (!ps.length) return 0.5;
+    let lo = 0, hi = ps.length;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (ps[m] < p) lo = m + 1; else hi = m; }
+    return lo / ps.length;
+  };
+  /* 用起音的真实时间，不吸网格 —— 生成器本身也是按真实起音落点的 */
   const out = [];
-  const kmax = Math.floor((TL.chartEnd - 0.4) / SLOT);
-  for (let lane = 0; lane < P.lanes; lane++) {
-    const arr = byLane[lane];
-    for (let k = 2; k <= kmax; k++) {
-      const t = k * SLOT;
-      /* 二分找同轨最近音符的距离 */
-      let lo = 0, hi2 = arr.length;
-      while (lo < hi2) { const m = (lo + hi2) >> 1; if (arr[m] < t) lo = m + 1; else hi2 = m; }
-      let d = Infinity;
-      if (lo < arr.length) d = Math.min(d, arr[lo] - t);
-      if (lo > 0) d = Math.min(d, t - arr[lo - 1]);
-      if (d < MIN_SAME) continue;
-      let blocked = false;
-      for (let h = 0; h < holds.length; h++) {
-        if (t > holds[h][0] + 0.06 && t < holds[h][1] + 0.22) { blocked = true; break; }
-      }
-      if (blocked) continue;
-      /* 这一格是不是踩在「谱面没用到的音频起音」上（±70ms） */
-      const onOnset = nearestGap(spare, t) < 0.07;
-      /* 分级：踩音且不挤 = 选它；空档 = 能加；其余 = 太挤 */
-      const roomy = d >= 0.42;
-      const lvl = (onOnset && roomy) ? 'onset' : (roomy ? 'open' : 'tight');
-      out.push({ t: t, lane: lane, lvl: lvl, d: d });
-    }
+  let lastT = -9;
+  for (let i = 0; i < curCellData.length; i++) {
+    const c = curCellData[i];
+    if (used.has(c.t.toFixed(3))) continue;
+    if (c.s < CAND_MIN_VEL) continue;        /* 轻轻带过的音不提示，否则满屏都是点 */
+    if (c.t < SLOT * 2 || c.t > TL.chartEnd - 0.35) continue;
+    if (c.t - lastT < 0.055) continue;      /* 同一瞬间的和弦音只提示一次 */
+    if (noteNear(c.t, 0.09)) continue;      /* 谱面这里已经有音了 */
+    const natural = clamp(Math.round(rankOf(c.p) * (P.lanes - 1)), 0, P.lanes - 1);
+    const lane = freeLane(natural, c.t);
+    if (lane < 0) continue;
+    lastT = c.t;
+    out.push({ t: c.t, lane: lane, p: c.p });
   }
   out.sort((a, b) => a.t - b.t || a.lane - b.lane);
   cands = out;
 }
 
-/* 数值数组里距离 v 最近的元素距离（数组已排序） */
-function nearestGap(arr, v) {
-  let lo = 0, hi = arr.length;
-  while (lo < hi) { const m = (lo + hi) >> 1; if (arr[m] < v) lo = m + 1; else hi = m; }
-  let d = Infinity;
-  if (lo < arr.length) d = Math.min(d, arr[lo] - v);
-  if (lo > 0) d = Math.min(d, v - arr[lo - 1]);
-  return d;
+/* 任意轨道上、t 附近 tol 内是否已有音符（含长按占位） */
+function noteNear(t, tol) {
+  for (let i = 0; i < notes.length; i++) {
+    const n = notes[i];
+    const nEnd = n.t + (n.type === 'hold' ? n.holdBeats * TL.beat : 0);
+    if (t > n.t - tol && t < nEnd + tol) return true;
+  }
+  return false;
+}
+
+/* 这条轨道、这个时刻能不能放一个音符（长按长度 dur） */
+function canPlace(lane, t, dur) {
+  if (lane < 0 || lane >= P.lanes) return false;
+  dur = dur || 0;
+  for (let i = 0; i < notes.length; i++) {
+    const n = notes[i];
+    if (n.lane !== lane) continue;
+    const nEnd = n.t + (n.type === 'hold' ? n.holdBeats * TL.beat : 0);
+    if (Math.abs(n.t - t) < MIN_SAME) return false;
+    if (t < nEnd + 0.06 && t + dur > n.t - 0.06) return false;
+  }
+  return true;
+}
+
+function freeLane(natural, t) {
+  if (canPlace(natural, t)) return natural;
+  for (let d = 1; d < P.lanes; d++) {
+    if (canPlace(natural - d, t)) return natural - d;
+    if (canPlace(natural + d, t)) return natural + d;
+  }
+  return -1;
 }
 
 function laneColors(n) {
   const out = [];
   for (let i = 0; i < n; i++) {
-    const hue = n === 1 ? 42 : 40 + (150 * i) / (n - 1);
-    out.push('hsl(' + hue.toFixed(0) + ',66%,62%)');
+    /* 190（青）→ 330（品红）：整条冷色带，把绿让给长按 */
+    const hue = n === 1 ? 200 : 190 + (140 * i) / (n - 1);
+    out.push('hsl(' + hue.toFixed(0) + ',66%,64%)');
   }
   return out;
 }
 
 function generate() {
+  musicStop();
   TL = CELLS[songId].timeline;
   const cells = CELLS[songId].cells.map(c => ({ t: c[0], s: c[1], p: c[2] }));
   laneHex = laneColors(P.lanes);
   curCells = cells.map(c => c.t);
+  curCellData = cells;
   notes = chartFromCells(cells, {
     lanes: P.lanes, beat: TL.beat, bar: TL.bar, chartEnd: TL.chartEnd,
     maxStep: P.maxStep, pull: P.pull
@@ -900,7 +943,8 @@ function drawRoll() {
   if (!W || !H) return;
   const vis0 = rollVis();
   const maxT0 = Math.max(0, TL.chartEnd - vis0);
-  if (roll.follow && scan.playing) roll.t0 = clamp(scan.t - vis0 * 0.68, 0, maxT0);
+  /* 播放时把播放头钉在视野正中间，画面跟着走 */
+  if (roll.follow && scan.playing) roll.t0 = clamp(scan.t - vis0 * 0.5, 0, maxT0);
   roll.t0 = clamp(roll.t0, 0, maxT0);
 
   c.clearRect(0, 0, W, H);
@@ -944,13 +988,13 @@ function drawRoll() {
   /* --- 右侧密度条 --- */
   let dmax = 1;
   for (let i = 0; i < stat.dens.length; i++) if (stat.dens[i] > dmax) dmax = stat.dens[i];
-  const bh = Math.max(1.4, stat.bucket * roll.pps - 0.8);
+  const bh = Math.max(1.4, stat.bucket * roll.pps * 0.54);
   c.fillStyle = 'rgba(255,255,255,.05)';
   c.fillRect(g.densX, g.y0, g.densW, g.y1 - g.y0);
   for (let i = Math.max(0, Math.floor(t0 / stat.bucket)); i < stat.dens.length && i * stat.bucket <= t1; i++) {
     const v = stat.dens[i] / dmax;
     const w = Math.max(3, v * g.densW);
-    c.fillStyle = 'rgba(242,179,61,' + (0.22 + 0.62 * v).toFixed(3) + ')';
+    c.fillStyle = 'rgba(242,179,61,' + (0.16 + 0.50 * v).toFixed(3) + ')';
     c.fillRect(g.densX, g.Y(i * stat.bucket), w, bh);
   }
   /* 密度刻度：25/50/75/100% */
@@ -962,30 +1006,22 @@ function drawRoll() {
   }
   rollDmax = dmax;
 
-  /* --- 候选点位（编辑模式） --- */
+  /* --- 可加点（只在编辑模式）：都是原曲真有声音、谱面没打的拍点 --- */
   if (editOn) {
     const ci = lowerBoundT(cands, t0 - 0.1);
+    const dw = clamp(g.laneW * 0.14, 3.4, 7.5);
     for (let i = ci; i < cands.length; i++) {
       const cd = cands[i];
       if (cd.t > t1) break;
-      if (cd.lvl === 'tight' && !showTight) continue;
       const cx = g.x0 + cd.lane * g.laneW + g.laneW / 2;
       const y = g.Y(cd.t);
-      if (cd.lvl === 'onset') {
-        /* 踩在音频起音上 → 最优先，金色小菱形 */
-        c.fillStyle = 'rgba(255,201,92,.75)';
-        c.beginPath();
-        c.moveTo(cx, y - 3); c.lineTo(cx + 3, y); c.lineTo(cx, y + 3); c.lineTo(cx - 3, y);
-        c.closePath(); c.fill();
-      } else if (cd.lvl === 'open') {
-        const w = Math.min(18, Math.max(6, g.laneW * 0.26));
-        c.fillStyle = 'rgba(99,217,166,.34)';
-        c.fillRect(cx - w / 2, y - 1.25, w, 2.5);
-      } else {
-        const w = Math.min(16, Math.max(5, g.laneW * 0.22));
-        c.fillStyle = 'rgba(255,138,216,.30)';
-        c.fillRect(cx - w / 2, y - 1, w, 2);
-      }
+      c.strokeStyle = 'rgba(255,201,92,.30)';
+      c.lineWidth = 1;
+      c.beginPath(); c.arc(cx, y, dw * 1.85, 0, Math.PI * 2); c.stroke();
+      c.fillStyle = 'rgba(255,201,92,.92)';
+      c.beginPath();
+      c.moveTo(cx, y - dw); c.lineTo(cx + dw, y); c.lineTo(cx, y + dw); c.lineTo(cx - dw, y);
+      c.closePath(); c.fill();
     }
   }
 
@@ -1002,13 +1038,24 @@ function drawRoll() {
     const nh = clamp(roll.pps * 0.075, 3.5, 9);
     if (nt.type === 'hold') {
       const y2 = g.Y(nt.t + nt.holdBeats * TL.beat);
-      c.fillStyle = 'rgba(99,217,166,.24)';
-      c.fillRect(cx - w * 0.26, y, w * 0.52, Math.max(5, y2 - y));
-      c.strokeStyle = 'rgba(99,217,166,.45)';
-      c.lineWidth = 1;
-      c.strokeRect(cx - w * 0.26 + 0.5, y + 0.5, w * 0.52 - 1, Math.max(4, y2 - y));
-      c.fillStyle = '#EAF6EF';
-      c.fillRect(cx - w * 0.42, y - nh * 0.55, w * 0.84, nh * 1.1);
+      const bh = Math.max(5, y2 - y);
+      const bw = w * 0.5;
+      c.fillStyle = 'rgba(255,255,255,.10)';
+      c.fillRect(cx - bw / 2, y, bw, bh);
+      c.strokeStyle = laneHex[nt.lane];
+      c.lineWidth = 1.2;
+      c.strokeRect(cx - bw / 2 + 0.6, y + 0.6, bw - 1.2, bh - 1.2);
+      /* 头（按下）与尾（松开）两端的亮条，方向一眼可辨 */
+      c.fillStyle = nt.user ? '#FFFFFF' : '#F3EADD';
+      c.fillRect(cx - w * 0.42, y - nh * 0.55, w * 0.84, Math.max(4, nh * 1.1));
+      c.globalAlpha = 0.75;
+      c.fillRect(cx - w * 0.36, y + bh - Math.max(3, nh * 0.5), w * 0.72, Math.max(3, nh * 0.5));
+      c.globalAlpha = 1;
+      if (nt.user) {
+        c.strokeStyle = 'rgba(255,201,92,.9)';
+        c.lineWidth = 1;
+        c.strokeRect(cx - bw / 2 - 1.5, y - 1.5, bw + 3, bh + 3);
+      }
     } else if (nt.type === 'accent') {
       c.fillStyle = '#FFD98A';
       c.fillRect(cx - w * 0.46, y - nh * 0.62, w * 0.92, nh * 1.24);
@@ -1023,8 +1070,48 @@ function drawRoll() {
     }
   }
 
-  /* --- 播放头 --- */
+  /* --- 长条拖拽预览 --- */
+  if (hdrag && hdrag.dragging) {
+    const yA = g.Y(hdrag.t0), yB = g.Y(hdrag.t1);
+    const cx = g.x0 + hdrag.lane * g.laneW + g.laneW / 2;
+    const bw = Math.min(48, Math.max(9, g.laneW * 0.62)) * 0.5;
+    c.fillStyle = 'rgba(255,201,92,.20)';
+    c.fillRect(cx - bw / 2, Math.min(yA, yB), bw, Math.abs(yB - yA) || 6);
+    c.strokeStyle = 'rgba(255,201,92,.9)';
+    c.lineWidth = 1.2;
+    c.setLineDash([4, 3]);
+    c.strokeRect(cx - bw / 2 + 0.6, Math.min(yA, yB) + 0.6, bw - 1.2, (Math.abs(yB - yA) || 6) - 1.2);
+    c.setLineDash([]);
+    c.fillStyle = 'rgba(255,201,92,.95)';
+    c.font = '600 11px ui-monospace,Menlo,monospace';
+    c.textAlign = 'left';
+    c.fillText((hdrag.hb).toFixed(1) + ' 拍 · ' + hdrag.t1.toFixed(2) + 's', cx + bw / 2 + 8, Math.min(yA, yB) + 4);
+  }
+
+  /* --- 播放中的聚焦：离播放头越远越暗，播放头附近轻微提亮 --- */
   const yh = g.Y(scan.t);
+  if (scan.playing && yh > g.y0 && yh < g.y1) {
+    const up = c.createLinearGradient(0, g.y0, 0, yh);
+    up.addColorStop(0, 'rgba(9,7,11,.88)');
+    up.addColorStop(1, 'rgba(9,7,11,0)');
+    c.fillStyle = up;
+    c.fillRect(g.x0, g.y0, g.x1 - g.x0, yh - g.y0);
+    const dn = c.createLinearGradient(0, yh, 0, g.y1);
+    dn.addColorStop(0, 'rgba(9,7,11,0)');
+    dn.addColorStop(1, 'rgba(9,7,11,.88)');
+    c.fillStyle = dn;
+    c.fillRect(g.x0, yh, g.x1 - g.x0, g.y1 - yh);
+    /* 播放头附近的一圈暖光，把视线钉在这一行 */
+    const band = Math.min(90, (g.y1 - g.y0) * 0.18);
+    const glow = c.createLinearGradient(0, yh - band, 0, yh + band);
+    glow.addColorStop(0, 'rgba(242,179,61,0)');
+    glow.addColorStop(0.5, 'rgba(242,179,61,.075)');
+    glow.addColorStop(1, 'rgba(242,179,61,0)');
+    c.fillStyle = glow;
+    c.fillRect(g.x0, yh - band, g.x1 - g.x0, band * 2);
+  }
+
+  /* --- 播放头 --- */
   if (yh >= g.y0 && yh <= g.y1) {
     c.strokeStyle = 'rgba(255,255,255,.9)';
     c.lineWidth = 1.3;
@@ -1316,6 +1403,101 @@ function click(accent) {
   o.start(t0); o.stop(t0 + 0.09);
 }
 
+/* ---------- 音乐：用和谱面同源的起音数据实时合成 ----------
+ * 数据来源就是 CELls 里的 [t, 力度, 音高]，所以听到的旋律和看到的音符是同一份，
+ * 不会出现「音画不同步」这种假象。 */
+let musOn = true;
+let musBus = null;
+let musAnchor = { t: 0, at: 0 };
+let musIdx = 0;
+let musSrcs = [];
+
+function ensureMusicBus() {
+  ensureAudio();
+  if (!ac) return false;
+  if (!musBus) {
+    const comp = ac.createDynamicsCompressor();
+    comp.threshold.value = -16; comp.knee.value = 18; comp.ratio.value = 3.6;
+    comp.attack.value = 0.004; comp.release.value = 0.2;
+    musBus = ac.createGain();
+    musBus.gain.value = 0.9;
+    musBus.connect(comp).connect(ac.destination);
+  }
+  if (ac.state === 'suspended') ac.resume();
+  return true;
+}
+
+function musicKill() {
+  for (let i = 0; i < musSrcs.length; i++) { try { musSrcs[i].stop(0); } catch (e) {} }
+  musSrcs = [];
+}
+
+/* 重锚：把「谱面时间轴」和「音频时钟」重新对齐 */
+function musicReset() {
+  musicKill();
+  musIdx = Math.max(0, lowerBoundT(curCellData, scan.t - 0.02));
+  musAnchor = { t: scan.t, at: ac ? ac.currentTime : 0 };
+}
+
+function musicStop() {
+  musicKill();
+  if (musBus && ac) musBus.gain.setTargetAtTime(0, ac.currentTime, 0.015);
+}
+
+function musicStart() {
+  if (!musOn) return;
+  if (!ensureMusicBus()) return;
+  musBus.gain.setTargetAtTime(0.9, ac.currentTime, 0.02);
+  musicReset();
+}
+
+/* 单音：三角波基频 + 两个正弦泛音，快速衰减，像木琴/钢琴的短音 */
+function musNote(at, midi, vel) {
+  if (!ac || ac.state !== 'running' || !musBus) return;
+  const f = 440 * Math.pow(2, (midi - 69) / 12);
+  if (!isFinite(f) || f < 25 || f > 9000) return;
+  const g = ac.createGain();
+  const lp = ac.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = Math.min(f * 7 + 900, 12000);
+  lp.Q.value = 0.35;
+  const o1 = ac.createOscillator(); o1.type = 'triangle'; o1.frequency.value = f;
+  const o2 = ac.createOscillator(); o2.type = 'sine'; o2.frequency.value = f * 2.002;
+  const g2 = ac.createGain(); g2.gain.value = 0.28;
+  const o3 = ac.createOscillator(); o3.type = 'sine'; o3.frequency.value = f * 3.008;
+  const g3 = ac.createGain(); g3.gain.value = 0.09;
+  o1.connect(lp);
+  o2.connect(g2).connect(lp);
+  o3.connect(g3).connect(lp);
+  lp.connect(g).connect(musBus);
+  const amp = 0.03 + 0.15 * clamp(vel, 0, 1);
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.exponentialRampToValueAtTime(amp, at + 0.006);
+  g.gain.exponentialRampToValueAtTime(amp * 0.32, at + 0.13);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + 0.60);
+  o1.start(at); o2.start(at); o3.start(at);
+  const end = at + 0.64;
+  o1.stop(end); o2.stop(end); o3.stop(end);
+  musSrcs.push(o1, o2, o3);
+  if (musSrcs.length > 600) musSrcs = musSrcs.slice(-240);
+}
+
+/* 每帧把接下来 0.35s 内的音排进音频时钟 */
+function musicTick() {
+  if (!musOn || !scan.playing || !ac || ac.state !== 'running' || !musBus) return;
+  const nowAt = ac.currentTime;
+  /* 改了倍速 / 拖了播放头 → 锚点漂了，重排 */
+  if (Math.abs(musAnchor.at + (scan.t - musAnchor.t) - nowAt) > 0.12) musicReset();
+  while (musIdx < curCellData.length) {
+    const c = curCellData[musIdx];
+    if (c.t < scan.t - 0.05) { musIdx++; continue; }
+    if (c.t > scan.t + 0.35) break;
+    const at = musAnchor.at + (c.t - musAnchor.t);
+    if (at > nowAt - 0.02) musNote(Math.max(at, nowAt), c.p, c.s);
+    musIdx++;
+  }
+}
+
 let lastTs = 0;
 function loop(ts) {
   requestAnimationFrame(loop);
@@ -1324,11 +1506,12 @@ function loop(ts) {
   if (scan.playing) {
     scan.t += (dt / 1000) * scan.mult;
     if (scan.t >= TL.chartEnd) { scan.t = 0; lastBeat = -1; }
-    /* 节拍器：跨过拍点就响一下，小节首拍重音 */
+    musicTick();
+    /* 没开音乐时才用节拍器顶替 */
     const bi = Math.floor(scan.t / TL.beat);
     if (bi !== lastBeat) {
       lastBeat = bi;
-      click(bi % BAR_BEATS === 0);
+      if (!(musOn && musBus)) click(bi % BAR_BEATS === 0);
     }
   }
   if (view === 'roll') { drawRoll(); updateRollInfo(); }
@@ -1513,8 +1696,14 @@ mapCv.addEventListener('pointerdown', e => {
 function toggleScan() {
   ensureAudio();
   scan.playing = !scan.playing;
-  if (scan.playing) lastBeat = Math.floor(scan.t / TL.beat) - 1;
-  say(scan.playing ? '扫描开始' : '已暂停');
+  if (scan.playing) {
+    lastBeat = Math.floor(scan.t / TL.beat) - 1;
+    roll.follow = true;              /* 一开始播就锁回中心跟随 */
+    musicStart();
+  } else {
+    musicStop();
+  }
+  say(scan.playing ? '播放中 · 画面跟随播放头' : '已暂停');
 }
 function say(t) {
   let n = $('#say');
@@ -1533,6 +1722,16 @@ $('#btn-copy').onclick = () => {
   else ok();
 };
 $('#btn-reset').onclick = () => applyPreset(diffKey);
+
+/* ---------- 音乐开关 ---------- */
+$('#mus-btn').onclick = () => {
+  musOn = !musOn;
+  $('#mus-btn').textContent = musOn ? '♪ 音乐 开' : '♪ 音乐 关';
+  $('#mus-btn').classList.toggle('on', musOn);
+  if (!musOn) musicStop();
+  else if (scan.playing) musicStart();
+  say(musOn ? '音乐开' : '音乐关（节拍器替代）');
+};
 
 /* ---------- 视图切换 ---------- */
 function setView(v) {
@@ -1572,13 +1771,37 @@ rollCv.addEventListener('wheel', e => {
 rollCv.addEventListener('pointerdown', e => {
   const r = rollCv.getBoundingClientRect();
   const g = rollGeom();
-  const py = e.clientY - r.top;
+  const py = e.clientY - r.top, px = e.clientX - r.left;
   if (py < g.y0) return;
+
+  /* 长条模式：按下开始画，往下拖定义长度 */
+  if (editOn && edTool === 'hold') {
+    const t = roll.t0 + (py - g.y0) / roll.pps;
+    const lane = clamp(Math.floor((px - g.x0) / g.laneW), 0, P.lanes - 1);
+    const hit = noteAt(lane, t);
+    const base = hit ? hit.t : t;
+    hdrag = { lane: lane, t0: base, t1: base, hb: 0, hit: hit, dragging: false, y0: py };
+    try { rollCv.setPointerCapture(e.pointerId); } catch (err) {}
+    return;
+  }
+
   rdrag = { y: py, t0: roll.t0, moved: false };
   try { rollCv.setPointerCapture(e.pointerId); } catch (err) {}
   rollCv.classList.add('dragging');
 });
 rollCv.addEventListener('pointermove', e => {
+  if (hdrag) {
+    const r = rollCv.getBoundingClientRect();
+    const g = rollGeom();
+    const py = e.clientY - r.top;
+    if (Math.abs(py - hdrag.y0) > 5) hdrag.dragging = true;
+    if (hdrag.dragging) {
+      hdrag.t1 = clamp(roll.t0 + (clamp(py, g.y0, g.y1) - g.y0) / roll.pps, 0, TL.chartEnd);
+      const span = Math.abs(hdrag.t1 - hdrag.t0);
+      hdrag.hb = Math.max(0.5, Math.round(span / (TL.beat / 2)) * 0.5);
+    }
+    return;
+  }
   if (!rdrag) return;
   const r = rollCv.getBoundingClientRect();
   const dy = e.clientY - r.top - rdrag.y;
@@ -1592,6 +1815,14 @@ rollCv.addEventListener('pointermove', e => {
   }
 });
 rollCv.addEventListener('pointerup', e => {
+  if (hdrag) {
+    const h = hdrag;
+    hdrag = null;
+    try { rollCv.releasePointerCapture(e.pointerId); } catch (err) {}
+    if (h.hit) { removeNote(h.hit); return; }
+    holdCommit(h);
+    return;
+  }
   if (!rdrag) return;
   const moved = rdrag.moved;
   rdrag = null;
@@ -1631,9 +1862,59 @@ function seekRollAt(py) {
 })();
 
 /* ---------- 手工编辑音符 ---------- */
+let hdrag = null;   /* 长条拖拽：{lane, t0, t1, hb, hit, dragging} */
+
 function snapshot() {
-  editHist.push({ adds: userAdds.map(a => ({ t: a.t, lane: a.lane })), dels: userDels.map(d => ({ t: d.t, lane: d.lane })) });
+  editHist.push({
+    adds: userAdds.map(a => ({ t: a.t, lane: a.lane, type: a.type, hb: a.hb })),
+    dels: userDels.map(d => ({ t: d.t, lane: d.lane }))
+  });
   if (editHist.length > 200) editHist.shift();
+}
+
+/* 命中已有音符（长条按整段算） */
+function noteAt(lane, t) {
+  const tol = Math.max(0.09, 9 / roll.pps);
+  let best = null, bd = 1e9;
+  for (let i = 0; i < notes.length; i++) {
+    const n = notes[i];
+    if (n.lane !== lane) continue;
+    const nEnd = n.t + (n.type === 'hold' ? n.holdBeats * TL.beat : 0);
+    const d = (t >= n.t && t <= nEnd) ? 0 : Math.min(Math.abs(n.t - t), Math.abs(nEnd - t));
+    if (d < bd) { bd = d; best = n; }
+  }
+  return bd <= tol ? best : null;
+}
+
+/* 这个时刻附近有没有「原曲真有声音」的可加点（不分轨道） */
+function candNear(t) {
+  const tol = Math.max(0.14, 11 / roll.pps);
+  let best = null, bd = 1e9;
+  for (let i = lowerBoundT(cands, t - tol); i < cands.length && cands[i].t <= t + tol; i++) {
+    const d = Math.abs(cands[i].t - t);
+    if (d < bd) { bd = d; best = cands[i]; }
+  }
+  return best;
+}
+
+function removeNote(n) {
+  snapshot();
+  if (n.user) userAdds = userAdds.filter(a => !(a.lane === n.lane && Math.abs(a.t - n.t) < 0.06));
+  else userDels.push({ t: n.t, lane: n.lane });
+  generate();
+  say('删掉 ' + n.t.toFixed(2) + 's · ' + (P.keys[n.lane] || n.lane));
+}
+
+function addNote(lane, t, type, hb) {
+  const isHold = type === 'hold' && hb > 0;
+  const dur = isHold ? hb * TL.beat : 0;
+  if (t + dur > TL.chartEnd - 0.2) { say('超出曲终了'); return false; }
+  if (!canPlace(lane, t, dur)) { say('这条轨道这里放不下（太挤或压到长按）'); return false; }
+  snapshot();
+  userAdds.push({ t: t, lane: lane, type: isHold ? 'hold' : 'std', hb: isHold ? hb : 0 });
+  generate();
+  say((isHold ? '加长条 ' + hb + ' 拍' : '加一个音') + ' · ' + t.toFixed(2) + 's · ' + (P.keys[lane] || lane));
+  return true;
 }
 
 function editAt(px, py) {
@@ -1641,40 +1922,23 @@ function editAt(px, py) {
   if (py < g.y0 || py > g.y1) return;
   const t = roll.t0 + (py - g.y0) / roll.pps;
   const lane = clamp(Math.floor((px - g.x0) / g.laneW), 0, P.lanes - 1);
-  const hitTol = Math.max(0.09, 9 / roll.pps);
 
   /* 1) 点到已有音符 → 删 */
-  let bi = -1, bd = 1e9;
-  for (let i = 0; i < notes.length; i++) {
-    const n = notes[i];
-    if (n.lane !== lane) continue;
-    const dt = Math.abs(n.t - t);
-    if (dt < bd) { bd = dt; bi = i; }
-  }
-  if (bi >= 0 && bd <= hitTol) {
-    const n = notes[bi];
-    snapshot();
-    if (n.user) {
-      userAdds = userAdds.filter(a => !(a.lane === n.lane && Math.abs(a.t - n.t) < 0.06));
-    } else {
-      userDels.push({ t: n.t, lane: n.lane });
-    }
-    generate();
-    say('删掉 ' + n.t.toFixed(2) + 's · ' + (P.keys[lane] || lane));
-    return;
-  }
+  const hit = noteAt(lane, t);
+  if (hit) { removeNote(hit); return; }
 
-  /* 2) 空处 → 吸附八分音符网格加一个 */
-  const SLOT = TL.beat / 2;
-  const tt = clamp(Math.round(t / SLOT) * SLOT, 0, TL.chartEnd - 0.35);
-  for (let i = 0; i < notes.length; i++) {
-    const n = notes[i];
-    if (n.lane === lane && Math.abs(n.t - tt) < 0.03) { say('这个位置已经有音符了'); return; }
-  }
-  snapshot();
-  userAdds.push({ t: tt, lane: lane });
-  generate();
-  say('加 ' + tt.toFixed(2) + 's · ' + (P.keys[lane] || lane));
+  /* 2) 空处 → 只有「原曲真有声音」的拍点才允许加 */
+  const cd = candNear(t);
+  if (!cd) { say('这里原曲没有声音，加了就是空按'); return; }
+  addNote(lane, cd.t, 'tap', 0);
+}
+
+function holdCommit(h) {
+  const start = Math.min(h.t0, h.t1);
+  const cd = candNear(start);
+  if (!cd) { say('长条的头必须落在原曲有声音的拍点上'); return; }
+  const hb = h.dragging ? Math.max(0.5, h.hb) : 2;
+  addNote(h.lane, cd.t, 'hold', hb);
 }
 
 $('#ed-sw').onclick = () => {
@@ -1682,16 +1946,19 @@ $('#ed-sw').onclick = () => {
   $('#ed-sw').classList.toggle('on', editOn);
   rollCv.classList.toggle('edit', editOn);
   if (editOn && view !== 'roll') setView('roll');
-  $('#ed-info').innerHTML = editOn
-    ? '编辑中：长卷上<b class="ok">绿色/粉色小块</b>就是可加点（八分音符网格 × 每条轨道）。点一下就加，点已有音符就删。'
-    : '开着编辑模式时，长卷上会标出所有<b class="ok">可加点</b>（八分音符网格 × 每条轨道，扣掉已有音符）。点空点=加一个，点已有音符=删掉。';
+  if (editOn && view !== 'roll') setView('roll');
   say(editOn ? '编辑模式开' : '编辑模式关');
 };
 
-$('#tight-sw').onclick = () => {
-  showTight = !showTight;
-  $('#tight-sw').classList.toggle('on', showTight);
-};
+document.querySelectorAll('#ed-tool button').forEach(b => {
+  b.onclick = () => {
+    edTool = b.dataset.tool;
+    document.querySelectorAll('#ed-tool button').forEach(x => x.classList.toggle('on', x === b));
+    rollCv.classList.toggle('edit', editOn);
+    say(edTool === 'hold' ? '长条模式：按住往下拖，松手定长度' : '单点模式：点金点加一个音');
+  };
+});
+
 $('#ed-undo').onclick = () => {
   const h = editHist.pop();
   if (!h) return say('没有可撤销的操作');
@@ -1809,11 +2076,15 @@ window.__lab = {
   roll: roll, get view() { return view; }, setView: setView,
   get cands() { return cands; }, get editOn() { return editOn; },
   get adds() { return userAdds; }, get dels() { return userDels; },
-  get editHist() { return editHist; },
+  get editHist() { return editHist; }, get edTool() { return edTool; },
+  get musOn() { return musOn; }, get musBus() { return musBus; },
+  get musSrcs() { return musSrcs.length; },
+  get curCells() { return curCellData; },
   editAt: function (px, py) { editAt(px, py); },
   toggleEdit: function () { $('#ed-sw').click(); },
+  setTool: function (t) { document.querySelector('#ed-tool [data-tool="' + t + '"]').click(); },
   seekRollAt: seekRollAt, updateRollBar: updateRollBar,
-  setZoom: setZoom
+  setZoom: setZoom, toggleScan: toggleScan
 };
 boot();
 })();

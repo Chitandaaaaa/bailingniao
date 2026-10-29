@@ -21,6 +21,8 @@ const ok = (name, cond, extra) => {
   p.on('console', m => { if (m.type() === 'error') errs.push('console: ' + m.text()); });
   await p.goto(LAB);
   await p.waitForTimeout(600);
+  await p.click('[data-diff="nightmare"]');   /* 8 轨才好测轨道相关的东西 */
+  await p.waitForTimeout(300);
 
   console.log('=== 竖屏长卷 ===');
   const boot = await p.evaluate(() => {
@@ -102,21 +104,28 @@ const ok = (name, cond, extra) => {
 
   const cand = await p.evaluate(() => {
     const L = window.__lab;
-    const lv = L.cands.reduce((m, c) => { m[c.lvl] = (m[c.lvl] || 0) + 1; return m; }, {});
-    return { on: L.editOn, total: L.cands.length, lvls: lv };
+    /* 每个候选点都必须真的踩在原曲起音上（±25ms），且同轨不挤 */
+    let bad = 0, minSame = 9;
+    for (const c of L.cands) {
+      let best = 9;
+      for (const cell of L.curCells) { const d = Math.abs(cell.t - c.t); if (d < best) best = d; }
+      if (best > 0.026) bad++;
+      let gap = 9;
+      for (const n of L.notes) { if (n.lane !== c.lane) continue; const d = Math.abs(n.t - c.t); if (d < gap) gap = d; }
+      if (gap < minSame) minSame = gap;
+    }
+    return { on: L.editOn, total: L.cands.length, bad, minSame: +minSame.toFixed(3) };
   });
   ok('编辑模式打开', cand.on === true, cand.on);
-  ok('候选点位已计算', cand.total > 500, cand.total);
-  ok('候选分成踩音/空档/太挤三级',
-    cand.lvls.onset > 0 && cand.lvls.open > 0 && cand.lvls.tight > 0, cand.lvls);
-  ok('踩音点比全部候选少（不是全选）', cand.lvls.onset < cand.total * 0.5,
-    { onset: cand.lvls.onset, total: cand.total });
+  ok('候选点位已计算', cand.total > 50, cand.total);
+  ok('每个候选点都踩在原曲起音上（±25ms）', cand.bad === 0, { total: cand.total, bad: cand.bad });
+  ok('候选点与同轨音符保持最小间隔', cand.minSame >= 0.195, cand.minSame);
 
-  /* 点一个「踩音」候选 → 加音符 */
+  /* 点一个候选点 → 加音符 */
   const hit = await p.evaluate(() => {
     const L = window.__lab, g = L.rollGeom();
     const r = document.querySelector('#roll').getBoundingClientRect();
-    const c = L.cands.find(x => x.lvl === 'onset' && x.t > L.roll.t0 + 1 && x.t < L.roll.t0 + 6);
+    const c = L.cands.find(x => x.t > L.roll.t0 + 1 && x.t < L.roll.t0 + 6);
     return { t: c.t, lane: c.lane, cx: r.left + g.x0 + c.lane * g.laneW + g.laneW / 2, cy: r.top + g.Y(c.t) };
   });
   const n0 = await p.evaluate(() => window.__lab.notes.length);
@@ -124,11 +133,7 @@ const ok = (name, cond, extra) => {
   await p.waitForTimeout(250);
   const n1 = await p.evaluate(() => ({ n: window.__lab.notes.length, adds: window.__lab.adds.length }));
   ok('点候选点 → 加一个音符', n1.n === n0 + 1 && n1.adds === 1, { before: n0, after: n1.n });
-  const added = await p.evaluate(() => {
-    const L = window.__lab;
-    return L.notes.some(n => n.user && Math.abs(n.t - 0) < 999);
-  });
-  ok('新音符被标记为手工加', added === true, added);
+  ok('新音符被标记为手工加', (await p.evaluate(() => window.__lab.notes.some(n => n.user))) === true);
   ok('统计总数同步 +1',
     (await p.evaluate(() => document.querySelector('#k-total').textContent)) === String(n0 + 1),
     await p.evaluate(() => document.querySelector('#k-total').textContent));
@@ -139,11 +144,86 @@ const ok = (name, cond, extra) => {
   const n2 = await p.evaluate(() => ({ n: window.__lab.notes.length, adds: window.__lab.adds.length }));
   ok('再点同一位置 → 删掉它', n2.n === n0 && n2.adds === 0, { after: n2.n });
 
-  /* 撤销恢复 */
+  console.log('=== 空按拒绝 ===');
+  const empty = await p.evaluate(() => {
+    const L = window.__lab, g = L.rollGeom();
+    const r = document.querySelector('#roll').getBoundingClientRect();
+    const lane = 6;
+    let t = L.roll.t0 + 3, found = null;
+    for (let k = 0; k < 900; k++) {
+      const nearCand = L.cands.some(c => Math.abs(c.t - t) < 0.5);
+      const nearNote = L.notes.some(n => n.lane === lane && Math.abs(n.t - t) < 0.35);
+      if (!nearCand && !nearNote) { found = t; break; }
+      t += 0.05;
+      if (t > L.TL.chartEnd - 2) break;
+    }
+    if (found === null) return null;
+    /* 保证这一屏能看到这个时刻 */
+    L.roll.t0 = Math.max(0, found - 4);
+    return { t: +found.toFixed(2), cx: r.left + g.x0 + g.laneW * (lane + 0.5), cy: r.top + g.Y(found) };
+  });
+  ok('找得到一个「原曲没声音」的空格', empty !== null, empty);
+  await p.waitForTimeout(120);
+  const emptyPt = await p.evaluate((t) => {
+    const L = window.__lab, g = L.rollGeom();
+    const r = document.querySelector('#roll').getBoundingClientRect();
+    return { cx: r.left + g.x0 + g.laneW * 6.5, cy: r.top + g.Y(t) };
+  }, empty.t);
+  await p.mouse.click(emptyPt.cx, emptyPt.cy);
+  await p.waitForTimeout(250);
+  const rej = await p.evaluate(() => ({
+    adds: window.__lab.adds.length,
+    say: (document.querySelector('#say') || {}).textContent || ''
+  }));
+  ok('点原曲没声音的地方 → 拒绝加音符', rej.adds === 0 && /没有声音/.test(rej.say), rej);
+
+  console.log('=== 长条 ===');
+  await p.evaluate(() => window.__lab.setTool('hold'));
+  await p.evaluate(() => {
+    const L = window.__lab;
+    L.roll.follow = false;
+    L.roll.t0 = Math.max(0, L.cands[Math.min(20, L.cands.length - 1)].t - 3);
+  });
+  await p.waitForTimeout(150);
+  const hAt = await p.evaluate(() => {
+    const L = window.__lab, g = L.rollGeom();
+    const r = document.querySelector('#roll').getBoundingClientRect();
+    const c = L.cands.find(x => x.t > L.roll.t0 + 0.8 && x.t < L.roll.t0 + g.vis - 2);
+    return { t: c.t, lane: c.lane, cx: r.left + g.x0 + c.lane * g.laneW + g.laneW / 2, cy: r.top + g.Y(c.t) };
+  });
+  await p.mouse.move(hAt.cx, hAt.cy);
+  await p.mouse.down();
+  await p.mouse.move(hAt.cx, hAt.cy + 66, { steps: 5 });
+  await p.mouse.up();
+  await p.waitForTimeout(300);
+  const hAdd = await p.evaluate(() => {
+    const L = window.__lab;
+    return { adds: L.adds.length, type: L.adds[0] && L.adds[0].type, hb: L.adds[0] && L.adds[0].hb,
+      note: L.notes.filter(n => n.user && n.type === 'hold').length };
+  });
+  ok('长条模式拖拽 → 加一个长按', hAdd.adds === 1 && hAdd.type === 'hold' && hAdd.hb > 0, hAdd);
+  ok('长按真的进谱面（type=hold）', hAdd.note === 1, hAdd.note);
+
+  /* 点长条中段 → 整条删掉 */
+  const hMid = await p.evaluate(() => {
+    const L = window.__lab, g = L.rollGeom();
+    const r = document.querySelector('#roll').getBoundingClientRect();
+    const n = L.notes.find(x => x.user && x.type === 'hold');
+    const tm = n.t + n.holdBeats * L.TL.beat * 0.6;
+    return { cx: r.left + g.x0 + n.lane * g.laneW + g.laneW / 2, cy: r.top + g.Y(tm) };
+  });
+  await p.mouse.click(hMid.cx, hMid.cy);
+  await p.waitForTimeout(300);
+  ok('点长条中段 → 整条删除', (await p.evaluate(() => window.__lab.adds.length)) === 0);
+  await p.evaluate(() => window.__lab.setTool('tap'));
+
+  /* 撤销恢复：刚才删了长条，撤销后长条应该回来 */
   await p.click('#ed-undo');
   await p.waitForTimeout(250);
-  ok('撤销 → 回到上一步', (await p.evaluate(() => window.__lab.notes.length)) === n0 + 1,
-    await p.evaluate(() => window.__lab.notes.length));
+  ok('撤销 → 回到上一步', (await p.evaluate(() => window.__lab.adds.length)) === 1,
+    await p.evaluate(() => window.__lab.adds.length));
+  await p.click('#ed-clear');
+  await p.waitForTimeout(200);
 
   /* 删一个真实音符 */
   const real = await p.evaluate(() => {
@@ -171,6 +251,26 @@ const ok = (name, cond, extra) => {
   ok('切难度后没有越界轨道音符', easy.bad === 0, easy);
   await p.click('[data-diff="nightmare"]');
   await p.waitForTimeout(250);
+
+  console.log('=== 播放跟随 / 音乐 ===');
+  await p.evaluate(() => { window.__lab.scan.t = 60; window.__lab.roll.follow = false; });
+  await p.keyboard.press('Space');
+  await p.waitForTimeout(900);
+  const pl = await p.evaluate(() => {
+    const L = window.__lab, g = L.rollGeom();
+    return { playing: L.scan.playing, follow: L.roll.follow, rel: (L.scan.t - L.roll.t0) / g.vis,
+      bus: !!L.musBus, srcs: L.musSrcs };
+  });
+  ok('播放时自动回到跟随', pl.playing && pl.follow === true, pl);
+  ok('播放头稳在视野正中（±6%）', Math.abs(pl.rel - 0.5) < 0.06, +pl.rel.toFixed(3));
+  ok('音乐总线已建立', pl.bus === true, pl.bus);
+  ok('音乐真的在排音（音源数 > 0）', pl.srcs > 0, pl.srcs);
+  await p.waitForTimeout(500);
+  const pl2 = await p.evaluate(() => ({ t: window.__lab.scan.t, t0: window.__lab.roll.t0 }));
+  ok('画面跟着播放头一起走', pl2.t0 > 0, { t0: +pl2.t0.toFixed(2) });
+  await p.keyboard.press('Space');
+  await p.waitForTimeout(200);
+  ok('空格可暂停', (await p.evaluate(() => window.__lab.scan.playing)) === false);
 
   console.log('=== 预览放大 / 全屏 ===');
   const pv0 = await p.evaluate(() => document.querySelector('#pv').clientHeight);
