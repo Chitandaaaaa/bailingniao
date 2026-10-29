@@ -113,13 +113,19 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       check('非活跃轨判定不产生 MISS 计数异常', r.after >= r.before, JSON.stringify(r));
     }
 
-    /* 里程碑 */
+    /* 里程碑：只有 100 连击有专属徽章，且只出现一次；10/30/50 等不再额外画数字
+       （历史上 20 连击会错误显示 "10 COMBO"、50 会落在左下角键位图例旁、>100 会反复刷 "100"） */
     const ms = await page.evaluate(() => {
-      const g = window.__game, G = g.G;
-      G.combo = 19; g.celebrate(20);
-      return { fx: !!G.msFx, key: G.msFx && G.msFx.key };
+      const g = window.__game, G = g.G, out = [];
+      [10, 20, 30, 40, 50, 60, 100, 110, 120].forEach(n => {
+        G.msFx = null; g.celebrate(n);
+        out.push({ n: n, fx: !!G.msFx, key: G.msFx && G.msFx.key, shown: G.msFx && G.msFx.n });
+      });
+      return out;
     });
-    check('10/20 连击庆典可触发', ms.fx, JSON.stringify(ms));
+    const art = ms.filter(r => r.fx);
+    check('100 连击徽章可触发且数字正确', art.length === 1 && art[0].n === 100 && art[0].shown === 100, JSON.stringify(art));
+    check('其余连击不再弹多余数字', !ms.some(r => r.n !== 100 && r.fx), '');
 
     /* 结算 */
     const res = await page.evaluate(async () => {
@@ -168,9 +174,14 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       const g = window.__game, G = g.G;
       if (G.state !== 'PLAYING') return;
       const t = g.Sound.chartTime();
+      /* 没有 hold 在延音时释放虚拟按住；命中 hold 则保持按住（模拟长按） */
+      if (!G.holds.length) { for (let i = 0; i < 5; i++) G.held[i] = false; }
       for (const n of G.notes) {
         if (n.judged) continue;
-        if (Math.abs(n.t - t) < 0.09) g.hitLane(n.lane, n.t);
+        if (Math.abs(n.t - t) < 0.09) {
+          if (n.type === 'hold') G.held[n.lane] = true;
+          g.hitLane(n.lane, n.t);
+        }
       }
     }, 16);
   });
