@@ -85,6 +85,23 @@
     background:linear-gradient(180deg,#151118,#100d12);border:1px solid var(--line);
     cursor:crosshair}
 
+  /* ---------- 视图切换 ---------- */
+  .tabs{display:flex;gap:4px}
+  .view{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}
+  .view.hide{display:none}
+  .rollwrap{position:relative;flex:1 1 auto;min-height:0}
+  #roll{width:100%;height:100%;border-radius:12px;
+    background:linear-gradient(180deg,#151118,#100d12);border:1px solid var(--line);
+    cursor:grab;touch-action:none}
+  #roll.dragging{cursor:grabbing}
+  #roll.edit{cursor:crosshair}
+  #rbar{position:absolute;right:3px;top:34px;bottom:10px;width:8px;border-radius:5px;
+    background:rgba(255,255,255,.055)}
+  #rbar:hover{background:rgba(255,255,255,.11)}
+  #rthumb{position:absolute;left:-2px;right:-2px;top:0;height:60px;border-radius:5px;
+    background:linear-gradient(180deg,rgba(242,179,61,.9),rgba(224,123,78,.65));
+    box-shadow:0 0 10px rgba(242,179,61,.35)}
+
   aside{
     flex:0 0 392px;width:392px;border-left:1px solid var(--line);overflow-y:auto;overflow-x:hidden;
     padding:12px;display:flex;flex-direction:column;gap:10px;
@@ -94,7 +111,37 @@
   .card h3{margin:0 0 8px;font-size:12px;letter-spacing:.14em;color:var(--dim);font-weight:600;text-transform:uppercase;
     display:flex;align-items:center;gap:8px}
   .card h3 em{font-style:normal;color:var(--gold);letter-spacing:0}
-  #pv{width:100%;height:216px;border-radius:8px;background:#0c0a0f;border:1px solid var(--line)}
+  #pv{width:100%;height:252px;border-radius:8px;background:#0c0a0f;border:1px solid var(--line);display:block}
+  .pv-card{position:relative}
+  .pv-card h3{padding-right:74px}
+  .pvbtns{position:absolute;right:9px;top:7px;display:flex;gap:4px}
+  .pvbtns .chip{line-height:1;padding:4px 7px;font-size:12px}
+  .pv-card.zoom{position:fixed;left:16px;top:16px;right:16px;bottom:16px;z-index:60;
+    display:flex;flex-direction:column;padding:14px 16px 16px;
+    background:linear-gradient(180deg,#1c1722,#121016);border-color:rgba(242,179,61,.45);
+    box-shadow:0 26px 80px rgba(0,0,0,.8)}
+  .pv-card.zoom #pv{flex:1 1 auto;height:auto;min-height:0;border-radius:10px}
+  #zoom-mask{display:none;position:fixed;inset:0;z-index:55;background:rgba(8,6,10,.74);
+    backdrop-filter:blur(2px)}
+  .pv-card:fullscreen{background:#0b0910;border:0;border-radius:0;padding:14px;
+    display:flex;flex-direction:column;justify-content:center}
+  .pv-card:fullscreen #pv{flex:1 1 auto;height:auto;min-height:0;border:0}
+
+  /* ---------- 编辑面板 ---------- */
+  .edrow{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:2px 0 8px}
+  .edrow span{font-size:12.5px;color:#cfc3d0}
+  .sw{width:36px;height:19px;border-radius:10px;background:rgba(255,255,255,.12);
+    position:relative;cursor:pointer;transition:.16s;flex:0 0 auto}
+  .sw::after{content:'';position:absolute;left:2px;top:2px;width:15px;height:15px;border-radius:50%;
+    background:#b9adb9;transition:.16s}
+  .sw.on{background:linear-gradient(180deg,rgba(242,179,61,.9),rgba(224,123,78,.7))}
+  .sw.on::after{left:19px;background:#fff}
+  .edlegend{display:flex;gap:12px;font-size:11.5px;color:var(--dim);margin:2px 0 6px;flex-wrap:wrap}
+  .edlegend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px}
+  .edinfo{font-size:11.5px;color:var(--dim);line-height:1.65}
+  .edinfo b{color:var(--gold)}
+  .edinfo b.ok{color:var(--ok)}
+  .edinfo b.no{color:var(--warn)}
 
   .row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:7px 0}
   .row>label{font-size:12.5px;color:#cfc3d0;flex:0 0 84px}
@@ -180,31 +227,68 @@
 <main>
   <div class="mapwrap">
     <div class="maptop">
-      <span class="t">全曲总谱 · 一页看完</span>
-      <span class="legend">
+      <div class="tabs">
+        <button class="chip mini on" data-view="roll">竖屏长卷</button>
+        <button class="chip mini" data-view="wide">横向总谱</button>
+      </div>
+      <span class="legend" id="legend-roll">
+        <span><i style="background:#FFD98A"></i>重音</span>
+        <span><i style="background:#63D9A6;width:14px;border-radius:3px"></i>长按</span>
+        <span><i style="background:#FFFFFF"></i>手工加</span>
+        <span><i style="background:#FFC95C;transform:rotate(45deg);width:7px;height:7px"></i>踩音点</span>
+        <span><i style="background:rgba(99,217,166,.55)"></i>空档</span>
+      </span>
+      <span class="legend" id="legend-wide" style="display:none">
         <span><i style="background:#F2B33D"></i>重音</span>
         <span><i style="background:#8fa6c8"></i>普通</span>
         <span><i style="background:#63D9A6;width:14px;border-radius:3px"></i>长按</span>
         <span><i style="background:rgba(255,255,255,.18)"></i>小节线</span>
       </span>
-    </div>
-    <canvas id="map"></canvas>
-    <div id="pbar" role="slider" aria-label="播放进度" tabindex="0">
-      <div id="pfill"></div><div id="pknob"></div>
-    </div>
-    <div class="maptop" style="margin:2px 0 0">
-      <span class="legend" style="margin-left:0">
-        点击总谱可跳转 · <b style="color:#cfc3d0">空格</b> 播放/暂停 · <b style="color:#cfc3d0">R</b> 复位
+      <span class="legend" style="margin-left:auto" id="zoomctl">
+        <span style="color:var(--dim)">缩放</span>
+        <input type="range" id="s-pps" min="24" max="180" step="4" style="width:96px">
+        <b class="mono" id="v-pps" style="color:var(--gold);font-size:11.5px">—</b>
       </span>
-      <span class="legend" id="scaninfo" style="margin-left:auto"></span>
+    </div>
+
+    <!-- 视图 1：竖屏长卷（时间自上而下，可上下拖动） -->
+    <div class="view" id="view-roll">
+      <div class="rollwrap">
+        <canvas id="roll"></canvas>
+        <div id="rbar"><div id="rthumb"></div></div>
+      </div>
+      <div class="maptop" style="margin:6px 0 0">
+        <span class="legend" style="margin-left:0" id="rollhint">
+          滚轮 / 拖动 上下浏览 · 空格播放 · <b style="color:#cfc3d0">F</b> 跟随播放头
+        </span>
+        <span class="legend" id="rollinfo" style="margin-left:auto"></span>
+      </div>
+    </div>
+
+    <!-- 视图 2：横向总谱 -->
+    <div class="view hide" id="view-wide">
+      <canvas id="map"></canvas>
+      <div id="pbar" role="slider" aria-label="播放进度" tabindex="0">
+        <div id="pfill"></div><div id="pknob"></div>
+      </div>
+      <div class="maptop" style="margin:2px 0 0">
+        <span class="legend" style="margin-left:0">
+          点击总谱可跳转 · <b style="color:#cfc3d0">空格</b> 播放/暂停 · <b style="color:#cfc3d0">R</b> 复位
+        </span>
+        <span class="legend" id="scaninfo" style="margin-left:auto"></span>
+      </div>
     </div>
   </div>
 
   <aside>
-    <div class="card">
+    <div class="card pv-card" id="pv-card">
       <h3>落点预览 <em id="pv-speed">—</em></h3>
+      <div class="pvbtns">
+        <button class="chip mini" id="pv-zoom" title="放大到整块画布">⤢ 放大</button>
+        <button class="chip mini" id="pv-full" title="真·全屏">⛶</button>
+      </div>
       <canvas id="pv"></canvas>
-      <div class="note" id="pv-note">按设计速度实时下落，判定线在底部。这里感受的就是游戏里的手速压力。</div>
+      <div class="note" id="pv-note">按设计速度实时下落，判定线在底部。放大后可用 Esc 退出。</div>
     </div>
 
     <div class="card">
@@ -246,6 +330,44 @@
     </div>
 
     <div class="card">
+      <h3>手工音符 <em id="ed-count">0</em></h3>
+      <div class="edrow">
+        <span>编辑模式（长卷上点击）</span>
+        <div class="sw" id="ed-sw"></div>
+      </div>
+      <div class="edrow" style="margin-top:2px">
+        <span>同时显示「太挤」的点位（粉）</span>
+        <div class="sw" id="tight-sw"></div>
+      </div>
+      <div class="edlegend">
+        <span><i style="background:#FFC95C;transform:rotate(45deg);width:7px;height:7px"></i>踩音点</span>
+        <span><i style="background:rgba(99,217,166,.6)"></i>空档</span>
+        <span><i style="background:rgba(255,138,216,.6)"></i>太挤</span>
+      </div>
+      <div class="edinfo" id="ed-info">
+        开着编辑模式时，长卷上会标出所有<b class="ok">可加点</b>（八分音符网格 × 每条轨道，扣掉已有音符）。
+        点空点=加一个，点已有音符=删掉。改动会实时进统计和预览。
+      </div>
+      <div class="btnrow">
+        <button class="btn" id="ed-undo">撤销</button>
+        <button class="btn" id="ed-clear">清空改动</button>
+        <button class="btn primary" id="ed-export">导出谱面</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>加音符的规则</h3>
+      <p class="note">
+        <b>能加，但不是随便加。</b> 这套谱面是从音频起音点挑出来的，所以手加的音符一旦偏离网格就会和音乐脱节。
+        上限来自四件事：<br>
+        ① <b>八分音符网格</b>——槽宽 <span class="mono" id="rule-slot">—</span>ms，同一个槽只能一个音；<br>
+        ② <b>同轨最小间隔</b>——<span class="mono" id="rule-same">—</span>ms，低于这个值一根手指按不回来；<br>
+        ③ <b>长按占位</b>——长按期间同轨不能再落点；<br>
+        ④ <b>可视密度</b>——本难度最快处 <span class="mono" id="rule-nps">—</span> 音/秒。
+      </p>
+    </div>
+
+    <div class="card">
       <h3>导出参数</h3>
       <pre id="cfg">—</pre>
       <div class="btnrow">
@@ -270,6 +392,8 @@
     </div>
   </aside>
 </main>
+
+<div id="zoom-mask"></div>
 
 <div id="boot-error">
   <b>缺少谱面数据</b><br>
@@ -377,6 +501,7 @@ function chartFromCells(cells, D) {
     k = bi + 1;
   }
   taken.sort((a, b) => a.t - b.t);
+  lastPicked = taken.map(c => c.t);   /* 谱面实际用到的起音点，供「未用起音」判定 */
 
   const L = D.lanes;
   const multi = L > 1;
@@ -568,6 +693,98 @@ let stat = null;
 let laneHex = [];
 let scan = { t: 0, playing: false, mult: 1, last: 0 };
 
+/* 视图 / 长卷 / 手工编辑 */
+let view = 'roll';
+const roll = { t0: 0, pps: 72, follow: true };
+let editOn = false;
+let userAdds = [];      /* {t, lane} 手工加的音符 */
+let userDels = [];      /* {t, lane} 手工删掉的音符 */
+let editHist = [];      /* 编辑快照，用于撤销 */
+let cands = [];         /* 可加点，按 t 排序 */
+let showTight = false;  /* 是否显示「太挤」的候选点 */
+let curCells = [];      /* 当前曲目的原始起音点时间 */
+let lastPicked = [];    /* 谱面实际采用的起音点 */
+const MIN_SAME = 0.20;  /* 同轨最小间隔（一根手指的物理下限，秒） */
+
+const lowerBoundT = (arr, v) => {
+  let lo = 0, hi = arr.length;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (arr[m].t < v) lo = m + 1; else hi = m; }
+  return lo;
+};
+
+/* 把手工改动叠加到生成谱面上（每次重新生成后重放） */
+function applyEdits() {
+  if (!userDels.length && !userAdds.length) return;
+  for (let d = 0; d < userDels.length; d++) {
+    const del = userDels[d];
+    for (let i = 0; i < notes.length; i++) {
+      const n = notes[i];
+      if (n.lane === del.lane && Math.abs(n.t - del.t) < 0.06) { notes.splice(i, 1); break; }
+    }
+  }
+  for (let a = 0; a < userAdds.length; a++) {
+    if (userAdds[a].lane >= P.lanes) continue;
+    notes.push({ t: userAdds[a].t, lane: userAdds[a].lane, type: 'std', holdBeats: 0, user: true });
+  }
+  /* 轨道数被调小时，丢掉越界的音符，避免索引 undefined */
+  notes = notes.filter(n => n.lane < P.lanes);
+  notes.sort((x, y) => x.t - y.t || x.lane - y.lane);
+}
+
+/* 可加点 = 八分音符网格 × 每条轨道 − 已有音符 − 长按占位 */
+function buildCands() {
+  const SLOT = TL.beat / 2;
+  const byLane = [], holds = [];
+  for (let i = 0; i < P.lanes; i++) byLane.push([]);
+  for (let i = 0; i < notes.length; i++) {
+    const n = notes[i];
+    if (n.lane < P.lanes) byLane[n.lane].push(n.t);
+    if (n.type === 'hold') holds.push([n.t, n.t + n.holdBeats * TL.beat]);
+  }
+  byLane.forEach(a => a.sort((x, y) => x - y));
+  /* 原曲里有、但这版谱面没打出来的起音 —— 这些才是真正「可以补」的音 */
+  const used = new Set(lastPicked.map(t => t.toFixed(3)));
+  const spare = curCells.filter(t => !used.has(t.toFixed(3))).sort((x, y) => x - y);
+  const out = [];
+  const kmax = Math.floor((TL.chartEnd - 0.4) / SLOT);
+  for (let lane = 0; lane < P.lanes; lane++) {
+    const arr = byLane[lane];
+    for (let k = 2; k <= kmax; k++) {
+      const t = k * SLOT;
+      /* 二分找同轨最近音符的距离 */
+      let lo = 0, hi2 = arr.length;
+      while (lo < hi2) { const m = (lo + hi2) >> 1; if (arr[m] < t) lo = m + 1; else hi2 = m; }
+      let d = Infinity;
+      if (lo < arr.length) d = Math.min(d, arr[lo] - t);
+      if (lo > 0) d = Math.min(d, t - arr[lo - 1]);
+      if (d < MIN_SAME) continue;
+      let blocked = false;
+      for (let h = 0; h < holds.length; h++) {
+        if (t > holds[h][0] + 0.06 && t < holds[h][1] + 0.22) { blocked = true; break; }
+      }
+      if (blocked) continue;
+      /* 这一格是不是踩在「谱面没用到的音频起音」上（±70ms） */
+      const onOnset = nearestGap(spare, t) < 0.07;
+      /* 分级：踩音且不挤 = 选它；空档 = 能加；其余 = 太挤 */
+      const roomy = d >= 0.42;
+      const lvl = (onOnset && roomy) ? 'onset' : (roomy ? 'open' : 'tight');
+      out.push({ t: t, lane: lane, lvl: lvl, d: d });
+    }
+  }
+  out.sort((a, b) => a.t - b.t || a.lane - b.lane);
+  cands = out;
+}
+
+/* 数值数组里距离 v 最近的元素距离（数组已排序） */
+function nearestGap(arr, v) {
+  let lo = 0, hi = arr.length;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (arr[m] < v) lo = m + 1; else hi = m; }
+  let d = Infinity;
+  if (lo < arr.length) d = Math.min(d, arr[lo] - v);
+  if (lo > 0) d = Math.min(d, v - arr[lo - 1]);
+  return d;
+}
+
 function laneColors(n) {
   const out = [];
   for (let i = 0; i < n; i++) {
@@ -581,11 +798,14 @@ function generate() {
   TL = CELLS[songId].timeline;
   const cells = CELLS[songId].cells.map(c => ({ t: c[0], s: c[1], p: c[2] }));
   laneHex = laneColors(P.lanes);
+  curCells = cells.map(c => c.t);
   notes = chartFromCells(cells, {
     lanes: P.lanes, beat: TL.beat, bar: TL.bar, chartEnd: TL.chartEnd,
     maxStep: P.maxStep, pull: P.pull
   });
+  applyEdits();
   stat = computeStats(notes, TL);
+  buildCands();
   if (scan.t > TL.chartEnd) scan.t = 0;
   renderStats();
   drawMap();
@@ -597,7 +817,8 @@ function generate() {
  * ============================================================ */
 const mapCv = $('#map'), mapCtx = mapCv.getContext('2d');
 const pvCv = $('#pv'), pvCtx = pvCv.getContext('2d');
-let MW = 0, MH = 0, PW = 0, PH = 0, DPR = 1;
+const rollCv = $('#roll'), rollCtx = rollCv.getContext('2d');
+let MW = 0, MH = 0, PW = 0, PH = 0, RW = 0, RH = 0, DPR = 1;
 
 function fitCanvas(cv, ctx, w, h) {
   DPR = window.devicePixelRatio || 1;
@@ -608,8 +829,11 @@ function fitCanvas(cv, ctx, w, h) {
 function layout() {
   const mw = mapCv.clientWidth, mh = mapCv.clientHeight;
   if (mw && mh) { MW = mw; MH = mh; fitCanvas(mapCv, mapCtx, mw, mh); }
+  const rw = rollCv.clientWidth, rh = rollCv.clientHeight;
+  if (rw && rh) { RW = rw; RH = rh; fitCanvas(rollCv, rollCtx, rw, rh); }
   const pw = pvCv.clientWidth, ph = pvCv.clientHeight;
   if (pw && ph) { PW = pw; PH = ph; fitCanvas(pvCv, pvCtx, pw, ph); }
+  updateRollBar();
 }
 
 /* ============================================================
@@ -637,6 +861,208 @@ function mapGeom() {
     X: t => x0 + (t / TL.chartEnd) * (x1 - x0),
     CY: i => top + laneH * (i + 0.5)
   };
+}
+
+/* ============================================================
+ * 5b. 竖屏长卷（时间自上而下，所有音符一目了然）
+ * ============================================================ */
+const ROLL_PAD = { l: 48, r: 92, hdr: 30, b: 12 };
+let rollDmax = 1;
+
+function rollVis() { return Math.max(0.5, (RH - ROLL_PAD.b - ROLL_PAD.hdr) / roll.pps); }
+
+function rollGeom() {
+  const x0 = ROLL_PAD.l, x1 = RW - ROLL_PAD.r;
+  const laneW = (x1 - x0) / Math.max(1, P.lanes);
+  const y0 = ROLL_PAD.hdr, y1 = RH - ROLL_PAD.b;
+  return {
+    x0: x0, x1: x1, laneW: laneW, y0: y0, y1: y1,
+    densX: x1 + 12, densW: Math.max(18, ROLL_PAD.r - 36),
+    Y: t => y0 + (t - roll.t0) * roll.pps,
+    vis: rollVis()
+  };
+}
+
+function updateRollBar() {
+  const th = $('#rthumb'), bar = $('#rbar');
+  if (!th || !bar) return;
+  const h = bar.clientHeight || 1;
+  const vis = rollVis();
+  const thH = Math.max(24, h * clamp(vis / Math.max(1, TL.chartEnd), 0, 1));
+  th.style.height = thH.toFixed(1) + 'px';
+  const maxT0 = Math.max(0, TL.chartEnd - vis);
+  const frac = maxT0 > 0 ? clamp(roll.t0 / maxT0, 0, 1) : 0;
+  th.style.top = (frac * (h - thH)).toFixed(1) + 'px';
+}
+
+function drawRoll() {
+  const c = rollCtx, W = RW, H = RH;
+  if (!W || !H) return;
+  const vis0 = rollVis();
+  const maxT0 = Math.max(0, TL.chartEnd - vis0);
+  if (roll.follow && scan.playing) roll.t0 = clamp(scan.t - vis0 * 0.68, 0, maxT0);
+  roll.t0 = clamp(roll.t0, 0, maxT0);
+
+  c.clearRect(0, 0, W, H);
+  const g = rollGeom();
+  const t0 = roll.t0, t1 = t0 + g.vis;
+
+  /* --- 轨道竖条 --- */
+  for (let i = 0; i < P.lanes; i++) {
+    const x = g.x0 + i * g.laneW;
+    c.fillStyle = i % 2 ? 'rgba(255,255,255,.015)' : 'rgba(255,255,255,.032)';
+    c.fillRect(x, g.y0, g.laneW, g.y1 - g.y0);
+    c.strokeStyle = 'rgba(255,255,255,.05)';
+    c.lineWidth = 1;
+    c.beginPath(); c.moveTo(x, g.y0); c.lineTo(x, g.y1); c.stroke();
+  }
+
+  /* --- 小节线 + 时间标签 --- */
+  const BAR = TL.bar;
+  if (BAR * roll.pps >= 16) {
+    for (let b = Math.max(0, Math.floor(t0 / BAR)); b * BAR <= t1; b++) {
+      const y = g.Y(b * BAR);
+      if (y < g.y0 || y > g.y1) continue;
+      c.strokeStyle = 'rgba(255,255,255,.05)';
+      c.lineWidth = 1;
+      c.beginPath(); c.moveTo(g.x0, y); c.lineTo(g.x1, y); c.stroke();
+    }
+  }
+  const SEC = [0.5, 1, 2, 5, 10, 15, 30].find(v => v * roll.pps >= 78) || 30;
+  c.font = '10px ui-monospace,Menlo,monospace';
+  c.textAlign = 'right';
+  for (let ts = Math.max(0, Math.floor(t0 / SEC) * SEC); ts <= t1; ts += SEC) {
+    const y = g.Y(ts);
+    if (y < g.y0 || y > g.y1) continue;
+    c.strokeStyle = 'rgba(255,255,255,.11)';
+    c.lineWidth = 1;
+    c.beginPath(); c.moveTo(g.x0, y); c.lineTo(g.x1, y); c.stroke();
+    c.fillStyle = 'rgba(154,140,156,.85)';
+    c.fillText(ts.toFixed(SEC < 1 ? 1 : 0) + 's', g.x0 - 9, y + 3.5);
+  }
+
+  /* --- 右侧密度条 --- */
+  let dmax = 1;
+  for (let i = 0; i < stat.dens.length; i++) if (stat.dens[i] > dmax) dmax = stat.dens[i];
+  const bh = Math.max(1.4, stat.bucket * roll.pps - 0.8);
+  c.fillStyle = 'rgba(255,255,255,.05)';
+  c.fillRect(g.densX, g.y0, g.densW, g.y1 - g.y0);
+  for (let i = Math.max(0, Math.floor(t0 / stat.bucket)); i < stat.dens.length && i * stat.bucket <= t1; i++) {
+    const v = stat.dens[i] / dmax;
+    const w = Math.max(3, v * g.densW);
+    c.fillStyle = 'rgba(242,179,61,' + (0.22 + 0.62 * v).toFixed(3) + ')';
+    c.fillRect(g.densX, g.Y(i * stat.bucket), w, bh);
+  }
+  /* 密度刻度：25/50/75/100% */
+  c.strokeStyle = 'rgba(255,255,255,.07)';
+  c.lineWidth = 1;
+  for (let q = 1; q <= 4; q++) {
+    const x = g.densX + q / 4 * g.densW;
+    c.beginPath(); c.moveTo(x, g.y0); c.lineTo(x, g.y1); c.stroke();
+  }
+  rollDmax = dmax;
+
+  /* --- 候选点位（编辑模式） --- */
+  if (editOn) {
+    const ci = lowerBoundT(cands, t0 - 0.1);
+    for (let i = ci; i < cands.length; i++) {
+      const cd = cands[i];
+      if (cd.t > t1) break;
+      if (cd.lvl === 'tight' && !showTight) continue;
+      const cx = g.x0 + cd.lane * g.laneW + g.laneW / 2;
+      const y = g.Y(cd.t);
+      if (cd.lvl === 'onset') {
+        /* 踩在音频起音上 → 最优先，金色小菱形 */
+        c.fillStyle = 'rgba(255,201,92,.75)';
+        c.beginPath();
+        c.moveTo(cx, y - 3); c.lineTo(cx + 3, y); c.lineTo(cx, y + 3); c.lineTo(cx - 3, y);
+        c.closePath(); c.fill();
+      } else if (cd.lvl === 'open') {
+        const w = Math.min(18, Math.max(6, g.laneW * 0.26));
+        c.fillStyle = 'rgba(99,217,166,.34)';
+        c.fillRect(cx - w / 2, y - 1.25, w, 2.5);
+      } else {
+        const w = Math.min(16, Math.max(5, g.laneW * 0.22));
+        c.fillStyle = 'rgba(255,138,216,.30)';
+        c.fillRect(cx - w / 2, y - 1, w, 2);
+      }
+    }
+  }
+
+  /* --- 音符 --- */
+  let lo = 0, hi = notes.length;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (notes[m].t < t0 - 2) lo = m + 1; else hi = m; }
+  for (let i = lo; i < notes.length; i++) {
+    const nt = notes[i];
+    if (nt.t > t1 + 0.4) break;
+    if (nt.lane >= P.lanes) continue;
+    const cx = g.x0 + nt.lane * g.laneW + g.laneW / 2;
+    const y = g.Y(nt.t);
+    const w = Math.min(48, Math.max(9, g.laneW * 0.62));
+    const nh = clamp(roll.pps * 0.075, 3.5, 9);
+    if (nt.type === 'hold') {
+      const y2 = g.Y(nt.t + nt.holdBeats * TL.beat);
+      c.fillStyle = 'rgba(99,217,166,.24)';
+      c.fillRect(cx - w * 0.26, y, w * 0.52, Math.max(5, y2 - y));
+      c.strokeStyle = 'rgba(99,217,166,.45)';
+      c.lineWidth = 1;
+      c.strokeRect(cx - w * 0.26 + 0.5, y + 0.5, w * 0.52 - 1, Math.max(4, y2 - y));
+      c.fillStyle = '#EAF6EF';
+      c.fillRect(cx - w * 0.42, y - nh * 0.55, w * 0.84, nh * 1.1);
+    } else if (nt.type === 'accent') {
+      c.fillStyle = '#FFD98A';
+      c.fillRect(cx - w * 0.46, y - nh * 0.62, w * 0.92, nh * 1.24);
+    } else {
+      c.fillStyle = nt.user ? '#FFFFFF' : laneHex[nt.lane];
+      c.fillRect(cx - w * 0.36, y - nh * 0.5, w * 0.72, nh);
+      if (nt.user) {
+        c.strokeStyle = 'rgba(242,179,61,.95)';
+        c.lineWidth = 1;
+        c.strokeRect(cx - w * 0.36 - 1.5, y - nh * 0.5 - 1.5, w * 0.72 + 3, nh + 3);
+      }
+    }
+  }
+
+  /* --- 播放头 --- */
+  const yh = g.Y(scan.t);
+  if (yh >= g.y0 && yh <= g.y1) {
+    c.strokeStyle = 'rgba(255,255,255,.9)';
+    c.lineWidth = 1.3;
+    c.beginPath(); c.moveTo(g.x0 - 5, yh); c.lineTo(g.x1 + 5, yh); c.stroke();
+    c.fillStyle = 'rgba(255,255,255,.92)';
+    c.beginPath();
+    c.moveTo(g.x0 - 5, yh); c.lineTo(g.x0 - 13, yh - 4.5); c.lineTo(g.x0 - 13, yh + 4.5);
+    c.closePath(); c.fill();
+  } else if (scan.playing) {
+    const up = yh < g.y0;
+    const yy = up ? g.y0 + 10 : g.y1 - 10;
+    c.fillStyle = 'rgba(242,179,61,.9)';
+    c.beginPath();
+    if (up) { c.moveTo(g.x1 + 10, yy + 5); c.lineTo(g.x1 + 18, yy + 5); c.lineTo(g.x1 + 14, yy - 3); }
+    else { c.moveTo(g.x1 + 10, yy - 5); c.lineTo(g.x1 + 18, yy - 5); c.lineTo(g.x1 + 14, yy + 3); }
+    c.closePath(); c.fill();
+  }
+
+  /* --- 顶部固定表头（盖在滚动内容之上） --- */
+  c.fillStyle = 'rgba(16,13,18,.96)';
+  c.fillRect(0, 0, W, g.y0);
+  c.strokeStyle = 'rgba(255,255,255,.11)';
+  c.beginPath(); c.moveTo(0, g.y0 + .5); c.lineTo(W, g.y0 + .5); c.stroke();
+  for (let i = 0; i < P.lanes; i++) {
+    const cx = g.x0 + i * g.laneW + g.laneW / 2;
+    c.fillStyle = laneHex[i];
+    c.font = '600 11px -apple-system,"PingFang SC",sans-serif';
+    c.textAlign = 'center';
+    c.fillText(P.keys[i] || '', cx, g.y0 - 10);
+  }
+  c.fillStyle = 'rgba(154,140,156,.75)';
+  c.font = '10px ui-monospace,Menlo,monospace';
+  c.textAlign = 'left';
+  c.fillText('时间 ↓', 8, g.y0 - 10);
+  c.textAlign = 'right';
+  c.fillText('密度 ' + rollDmax.toFixed(1) + '/s', W - 12, g.y0 - 10);
+
+  updateRollBar();
 }
 
 function drawMap() {
@@ -795,10 +1221,13 @@ function drawPreview() {
   c.clearRect(0, 0, W, H);
   const L = P.lanes;
   const laneW = W / L;
-  const jy = H - 44;
+  const jy = H - Math.max(44, PH * 0.09);
   const tNow = scan.t;
   const prog = clamp(tNow / TL.chartEnd, 0, 1);
-  const speed = P.speed * (1 + (P.speedEnd - 1) * prog);
+  /* 放大/全屏时按画布高度等比放大像素速度，保证「可视秒数」与游戏内一致，
+     不会因为画面变大就变相看到更长的前摇 */
+  const hScale = Math.max(1, H / TRAVEL);
+  const speed = P.speed * (1 + (P.speedEnd - 1) * prog) * hScale;
   const visSec = jy / speed;
 
   /* 轨道 */
@@ -827,8 +1256,8 @@ function drawPreview() {
     if (dtn > visSec || dtn < -0.4) continue;
     const x = nt.lane * laneW + laneW / 2;
     const y = jy - dtn * speed;
-    const w = Math.min(46, Math.max(10, laneW * 0.46));
-    const h = Math.max(4, Math.min(9, laneW * 0.2));
+    const w = clamp(laneW * 0.52, 10, 104);
+    const h = clamp(laneW * 0.17, 4, 26);
     const near = Math.abs(dtn) < hitBand;
     c.fillStyle = near ? '#FFFFFF' : (nt.type === 'accent' ? '#FFD98A' : laneHex[nt.lane]);
     if (nt.type === 'hold') {
@@ -848,17 +1277,20 @@ function drawPreview() {
 
   /* 键位 */
   c.textAlign = 'center';
-  c.font = '600 12px -apple-system,"PingFang SC",sans-serif';
+  const kh = clamp(laneW * 0.42, 18, 46);
+  const kf = clamp(laneW * 0.2, 11, 22);
+  c.font = '600 ' + kf.toFixed(0) + 'px -apple-system,"PingFang SC",sans-serif';
   for (let i = 0; i < L; i++) {
     c.fillStyle = 'rgba(255,255,255,.06)';
-    c.fillRect(i * laneW + 3, jy + 8, laneW - 6, 20);
+    c.fillRect(i * laneW + 3, jy + 8, laneW - 6, kh);
     c.fillStyle = laneHex[i];
-    c.fillText(P.keys[i] || '', i * laneW + laneW / 2, jy + 22.5);
+    c.fillText(P.keys[i] || '', i * laneW + laneW / 2, jy + 8 + kh * 0.72);
   }
   c.fillStyle = 'rgba(154,140,156,.85)';
   c.font = '10px ui-monospace,Menlo,monospace';
   c.textAlign = 'left';
-  c.fillText(Math.round(speed) + ' px/s · 1:1 实速 · 窗口 ' + visSec.toFixed(2) + 's', 6, 12);
+  c.fillText(Math.round(speed / hScale) + ' px/s' + (hScale > 1.01 ? ' · 放大 ' + hScale.toFixed(1) + '×' : ' · 1:1 实速') +
+    ' · 窗口 ' + visSec.toFixed(2) + 's', 6, 12);
 }
 
 /* ============================================================
@@ -899,9 +1331,20 @@ function loop(ts) {
       click(bi % BAR_BEATS === 0);
     }
   }
-  drawMap();
+  if (view === 'roll') { drawRoll(); updateRollInfo(); }
+  else { drawMap(); updateScanInfo(); }
   drawPreview();
-  updateScanInfo();
+}
+
+function updateRollInfo() {
+  const vis = rollVis();
+  const t0 = roll.t0, t1 = Math.min(TL.chartEnd, t0 + vis);
+  const f = v => Math.floor(v / 60) + ':' + String(Math.floor(v % 60)).padStart(2, '0');
+  const txt = f(t0) + ' – ' + f(t1) + ' ｜ 视野 ' + vis.toFixed(1) + 's ｜ ' +
+    (roll.follow ? '跟随播放头' : '自由浏览') + ' ｜ 共 ' + notes.length + ' 音' +
+    (editOn ? ' ｜ 编辑中' : '');
+  const el = $('#rollinfo');
+  if (el._t !== txt) { el._t = txt; el.textContent = txt; }
 }
 
 function updateScanInfo() {
@@ -978,6 +1421,12 @@ function renderStats() {
   const dense = Math.max(1, Math.min(P.maxStep, Math.round(P.maxStep - (P.maxStep - 1) - P.pull)));
   $('#k-gapdense').textContent = Math.round(dense * slotMs) + 'ms';
   $('#pv-speed').textContent = Math.round(P.speed) + ' → ' + Math.round(endSpd) + ' px/s';
+
+  /* 手工改动 & 加音符规则读数 */
+  $('#ed-count').textContent = userAdds.length + ' 加 / ' + userDels.length + ' 删';
+  $('#rule-slot').textContent = Math.round(TL.beat / 2 * 1000);
+  $('#rule-same').textContent = Math.round(MIN_SAME * 1000);
+  $('#rule-nps').textContent = (P.maxStep >= 2 ? 2 : 1) + '（' + stat.peak + ' 峰值）';
 
   $('#s-speed').value = P.speed;
   $('#s-end').value = P.speedEnd;
@@ -1070,7 +1519,7 @@ function toggleScan() {
 function say(t) {
   let n = $('#say');
   if (!n) { n = document.createElement('div'); n.id = 'say';
-    n.style.cssText = 'position:fixed;left:50%;bottom:62px;transform:translateX(-50%);padding:6px 14px;border-radius:999px;background:rgba(20,16,24,.92);border:1px solid rgba(242,179,61,.35);color:#F3EADD;font-size:12px;pointer-events:none;transition:opacity .3s;z-index:9';
+    n.style.cssText = 'position:fixed;right:18px;top:70px;padding:6px 14px;border-radius:999px;background:rgba(20,16,24,.94);border:1px solid rgba(242,179,61,.35);color:#F3EADD;font-size:12px;pointer-events:none;transition:opacity .3s;z-index:9';
     document.body.appendChild(n);
   }
   n.textContent = t; n.style.opacity = '1';
@@ -1084,6 +1533,214 @@ $('#btn-copy').onclick = () => {
   else ok();
 };
 $('#btn-reset').onclick = () => applyPreset(diffKey);
+
+/* ---------- 视图切换 ---------- */
+function setView(v) {
+  view = v;
+  document.querySelectorAll('[data-view]').forEach(x => x.classList.toggle('on', x.dataset.view === v));
+  $('#view-roll').classList.toggle('hide', v !== 'roll');
+  $('#view-wide').classList.toggle('hide', v !== 'wide');
+  $('#legend-roll').style.display = v === 'roll' ? '' : 'none';
+  $('#legend-wide').style.display = v === 'roll' ? 'none' : '';
+  $('#zoomctl').style.display = v === 'roll' ? '' : 'none';
+  requestAnimationFrame(() => { layout(); drawRoll(); drawMap(); drawPreview(); drawMap(); });
+}
+document.querySelectorAll('[data-view]').forEach(b => { b.onclick = () => setView(b.dataset.view); });
+
+/* ---------- 长卷缩放 ---------- */
+$('#s-pps').addEventListener('input', e => {
+  const anchor = roll.t0 + rollVis() * 0.5;
+  roll.pps = +e.target.value;
+  const nv = rollVis();
+  roll.t0 = clamp(anchor - nv * 0.5, 0, Math.max(0, TL.chartEnd - nv));
+  $('#v-pps').textContent = roll.pps + ' px/s';
+  updateRollBar();
+});
+
+/* ---------- 长卷：滚轮 / 拖动 / 点击 ---------- */
+let rdrag = null;
+rollCv.addEventListener('wheel', e => {
+  e.preventDefault();
+  const vis = rollVis();
+  const maxT0 = Math.max(0, TL.chartEnd - vis);
+  const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+  roll.t0 = clamp(roll.t0 + dy / roll.pps, 0, maxT0);
+  roll.follow = false;
+  updateRollBar();
+}, { passive: false });
+
+rollCv.addEventListener('pointerdown', e => {
+  const r = rollCv.getBoundingClientRect();
+  const g = rollGeom();
+  const py = e.clientY - r.top;
+  if (py < g.y0) return;
+  rdrag = { y: py, t0: roll.t0, moved: false };
+  try { rollCv.setPointerCapture(e.pointerId); } catch (err) {}
+  rollCv.classList.add('dragging');
+});
+rollCv.addEventListener('pointermove', e => {
+  if (!rdrag) return;
+  const r = rollCv.getBoundingClientRect();
+  const dy = e.clientY - r.top - rdrag.y;
+  if (Math.abs(dy) > 4) rdrag.moved = true;
+  if (rdrag.moved) {
+    const vis = rollVis();
+    const maxT0 = Math.max(0, TL.chartEnd - vis);
+    roll.t0 = clamp(rdrag.t0 - dy / roll.pps, 0, maxT0);
+    roll.follow = false;
+    updateRollBar();
+  }
+});
+rollCv.addEventListener('pointerup', e => {
+  if (!rdrag) return;
+  const moved = rdrag.moved;
+  rdrag = null;
+  rollCv.classList.remove('dragging');
+  try { rollCv.releasePointerCapture(e.pointerId); } catch (err) {}
+  if (moved) return;
+  const r = rollCv.getBoundingClientRect();
+  const px = e.clientX - r.left, py = e.clientY - r.top;
+  if (editOn) editAt(px, py); else seekRollAt(py);
+});
+
+function seekRollAt(py) {
+  const g = rollGeom();
+  if (py < g.y0 || py > g.y1) return;
+  scan.t = clamp(roll.t0 + (py - g.y0) / roll.pps, 0, TL.chartEnd);
+  lastBeat = Math.floor(scan.t / TL.beat);
+}
+
+/* ---------- 竖向滚动条拖拽 ---------- */
+(function () {
+  const bar = $('#rbar'), th = $('#rthumb');
+  let drag = false;
+  const apply = clientY => {
+    const r = bar.getBoundingClientRect();
+    const h = r.height, thH = th.clientHeight || 30;
+    const frac = clamp((clientY - r.top - thH / 2) / Math.max(1, h - thH), 0, 1);
+    const vis = rollVis();
+    roll.t0 = frac * Math.max(0, TL.chartEnd - vis);
+    roll.follow = false;
+  };
+  bar.addEventListener('pointerdown', e => {
+    drag = true; try { bar.setPointerCapture(e.pointerId); } catch (err) {}
+    apply(e.clientY); e.preventDefault();
+  });
+  bar.addEventListener('pointermove', e => { if (drag) apply(e.clientY); });
+  bar.addEventListener('pointerup', e => { drag = false; try { bar.releasePointerCapture(e.pointerId); } catch (err) {} });
+})();
+
+/* ---------- 手工编辑音符 ---------- */
+function snapshot() {
+  editHist.push({ adds: userAdds.map(a => ({ t: a.t, lane: a.lane })), dels: userDels.map(d => ({ t: d.t, lane: d.lane })) });
+  if (editHist.length > 200) editHist.shift();
+}
+
+function editAt(px, py) {
+  const g = rollGeom();
+  if (py < g.y0 || py > g.y1) return;
+  const t = roll.t0 + (py - g.y0) / roll.pps;
+  const lane = clamp(Math.floor((px - g.x0) / g.laneW), 0, P.lanes - 1);
+  const hitTol = Math.max(0.09, 9 / roll.pps);
+
+  /* 1) 点到已有音符 → 删 */
+  let bi = -1, bd = 1e9;
+  for (let i = 0; i < notes.length; i++) {
+    const n = notes[i];
+    if (n.lane !== lane) continue;
+    const dt = Math.abs(n.t - t);
+    if (dt < bd) { bd = dt; bi = i; }
+  }
+  if (bi >= 0 && bd <= hitTol) {
+    const n = notes[bi];
+    snapshot();
+    if (n.user) {
+      userAdds = userAdds.filter(a => !(a.lane === n.lane && Math.abs(a.t - n.t) < 0.06));
+    } else {
+      userDels.push({ t: n.t, lane: n.lane });
+    }
+    generate();
+    say('删掉 ' + n.t.toFixed(2) + 's · ' + (P.keys[lane] || lane));
+    return;
+  }
+
+  /* 2) 空处 → 吸附八分音符网格加一个 */
+  const SLOT = TL.beat / 2;
+  const tt = clamp(Math.round(t / SLOT) * SLOT, 0, TL.chartEnd - 0.35);
+  for (let i = 0; i < notes.length; i++) {
+    const n = notes[i];
+    if (n.lane === lane && Math.abs(n.t - tt) < 0.03) { say('这个位置已经有音符了'); return; }
+  }
+  snapshot();
+  userAdds.push({ t: tt, lane: lane });
+  generate();
+  say('加 ' + tt.toFixed(2) + 's · ' + (P.keys[lane] || lane));
+}
+
+$('#ed-sw').onclick = () => {
+  editOn = !editOn;
+  $('#ed-sw').classList.toggle('on', editOn);
+  rollCv.classList.toggle('edit', editOn);
+  if (editOn && view !== 'roll') setView('roll');
+  $('#ed-info').innerHTML = editOn
+    ? '编辑中：长卷上<b class="ok">绿色/粉色小块</b>就是可加点（八分音符网格 × 每条轨道）。点一下就加，点已有音符就删。'
+    : '开着编辑模式时，长卷上会标出所有<b class="ok">可加点</b>（八分音符网格 × 每条轨道，扣掉已有音符）。点空点=加一个，点已有音符=删掉。';
+  say(editOn ? '编辑模式开' : '编辑模式关');
+};
+
+$('#tight-sw').onclick = () => {
+  showTight = !showTight;
+  $('#tight-sw').classList.toggle('on', showTight);
+};
+$('#ed-undo').onclick = () => {
+  const h = editHist.pop();
+  if (!h) return say('没有可撤销的操作');
+  userAdds = h.adds; userDels = h.dels;
+  generate(); say('已撤销');
+};
+$('#ed-clear').onclick = () => {
+  if (!userAdds.length && !userDels.length) return say('还没有手工改动');
+  snapshot();
+  userAdds = []; userDels = [];
+  generate(); say('改动已清空');
+};
+$('#ed-export').onclick = () => {
+  const data = {
+    song: songId, diff: diffKey, lanes: P.lanes, keys: P.keys,
+    speed: P.speed, speedEnd: P.speedEnd, maxStep: P.maxStep, pull: P.pull,
+    chartEnd: +TL.chartEnd.toFixed(3), beat: +TL.beat.toFixed(4),
+    added: userAdds.map(a => ({ t: +a.t.toFixed(3), lane: a.lane })),
+    removed: userDels.map(d => ({ t: +d.t.toFixed(3), lane: d.lane })),
+    notes: notes.map(n => ({ t: +n.t.toFixed(3), lane: n.lane, type: n.type, hb: n.holdBeats || 0 }))
+  };
+  const txt = JSON.stringify(data, null, 1);
+  const done = () => { say('谱面 JSON 已复制（' + notes.length + ' 音）'); $('#ed-export').textContent = '已复制'; setTimeout(() => { $('#ed-export').textContent = '导出谱面'; }, 1400); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, () => fallbackCopy(txt, done));
+  else fallbackCopy(txt, done);
+};
+function fallbackCopy(txt, cb) {
+  const ta = document.createElement('textarea');
+  ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); } catch (e) {}
+  document.body.removeChild(ta); cb && cb();
+}
+
+/* ---------- 预览放大 / 全屏 ---------- */
+function setZoom(on) {
+  $('#pv-card').classList.toggle('zoom', on);
+  $('#zoom-mask').style.display = on ? 'block' : 'none';
+  setTimeout(layout, 30);
+}
+$('#pv-zoom').onclick = () => setZoom(!$('#pv-card').classList.contains('zoom'));
+$('#zoom-mask').onclick = () => setZoom(false);
+$('#pv-full').onclick = () => {
+  const card = $('#pv-card');
+  if (document.fullscreenElement) { document.exitFullscreen(); return; }
+  if (card.requestFullscreen) card.requestFullscreen().catch(() => setZoom(true));
+  else setZoom(true);
+};
+document.addEventListener('fullscreenchange', () => setTimeout(layout, 80));
 
 /* 进度条：点击/拖拽跳转 */
 (function () {
@@ -1121,8 +1778,11 @@ $('#btn-reset').onclick = () => applyPreset(diffKey);
 
 document.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT') return;
+  if (e.code === 'Escape') { setZoom(false); return; }
   if (e.code === 'Space') { e.preventDefault(); toggleScan(); }
-  else if (e.code === 'KeyR') { scan.t = 0; lastBeat = -1; drawMap(); drawPreview(); }
+  else if (e.code === 'KeyR') { scan.t = 0; lastBeat = -1; roll.t0 = 0; drawMap(); drawPreview(); }
+  else if (e.code === 'KeyF') { roll.follow = !roll.follow; say(roll.follow ? '跟随播放头' : '自由浏览'); }
+  else if (e.code === 'KeyV') { setView(view === 'roll' ? 'wide' : 'roll'); }
   else if (e.code === 'Digit1' || e.code === 'Digit2' || e.code === 'Digit3') {
     applyPreset(['easy', 'hard', 'nightmare'][+e.code.slice(-1) - 1]);
   }
@@ -1133,16 +1793,27 @@ document.addEventListener('keydown', e => {
  * ============================================================ */
 function boot() {
   document.querySelector('[data-song="summer"]').classList.add('on');
+  $('#s-pps').value = roll.pps;
+  $('#v-pps').textContent = roll.pps + ' px/s';
   applyPreset('easy');
   layout();
   generate();
+  drawRoll();
   requestAnimationFrame(loop);
 }
-window.addEventListener('resize', () => { layout(); drawMap(); drawPreview(); });
+window.addEventListener('resize', () => { layout(); drawRoll(); drawMap(); drawPreview(); });
 /* 自动化测试钩子 */
 window.__lab = {
   get notes() { return notes; }, get stat() { return stat; }, get P() { return P; },
-  get TL() { return TL; }, scan: scan, mapGeom: mapGeom
+  get TL() { return TL; }, scan: scan, mapGeom: mapGeom, rollGeom: rollGeom,
+  roll: roll, get view() { return view; }, setView: setView,
+  get cands() { return cands; }, get editOn() { return editOn; },
+  get adds() { return userAdds; }, get dels() { return userDels; },
+  get editHist() { return editHist; },
+  editAt: function (px, py) { editAt(px, py); },
+  toggleEdit: function () { $('#ed-sw').click(); },
+  seekRollAt: seekRollAt, updateRollBar: updateRollBar,
+  setZoom: setZoom
 };
 boot();
 })();

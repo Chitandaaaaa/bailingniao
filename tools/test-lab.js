@@ -73,6 +73,10 @@ function ok(n, c, x) {
   ok('8 轨条形图 8 条', stats.bars === 8, stats.bars);
   ok('键位显示 8 个字母', stats.keys === 'ASDFJKL;', stats.keys);
 
+  /* 切到横向总谱视图（#map 只在那个视图里可见） */
+  await lp.click('[data-view="wide"]');
+  await lp.waitForTimeout(250);
+
   /* 扫描：空格开始，播放头前进 */
   await lp.click('#map', { position: { x: 400, y: 200 } });
   const t0 = await lp.evaluate(() => window.__lab.scan.t);
@@ -112,6 +116,7 @@ function ok(n, c, x) {
 
   ok('无页面异常', errs.length === 0, errs);
 
+  await lp.click('[data-view="wide"]');
   await lp.click('[data-diff="nightmare"]');
   await lp.waitForTimeout(300);
   await lp.screenshot({ path: path.join(__dirname, 'shots', 'lab-nightmare.png') });
