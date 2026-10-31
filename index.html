@@ -509,11 +509,23 @@ kbd{font:600 12px/1 var(--font-num);border:1px solid rgba(110,92,62,.3);border-b
 .seg3 button[aria-pressed="true"]{border-color:var(--milestone-deep);color:var(--milestone-deep);background:rgba(232,169,60,.16)}
 
 /* ---- 暂停界面 ---- */
-#pause-screen .panel{width:520px;height:264px}
+#pause-screen .panel{width:520px;height:292px}
 .p-title{margin:0;position:absolute;left:0;right:0;top:36px;text-align:center;font:800 32px/1.2 var(--font-ui);color:var(--text-hi)}
 .p-btns{position:absolute;left:0;right:0;top:114px;display:flex;justify-content:center;gap:14px}
 .p-btns .btn{width:152px;height:48px;padding:0;font-size:17px}
-.p-foot{position:absolute;left:0;right:0;top:202px;text-align:center;font:400 12px/1.4 var(--font-ui);color:var(--text-lo)}
+/* 暂停面板里的作弊开关：HUD 被面板盖住时唯一的可见入口 */
+.p-cheat{position:absolute;left:0;right:0;top:176px;display:flex;justify-content:center}
+.p-cheat-btn{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 18px;border-radius:10px;
+  border:1.5px solid rgba(110,92,62,.34);background:transparent;color:var(--text-mid);
+  cursor:pointer;font:700 13px/1 var(--font-ui);letter-spacing:.08em;
+  transition:color 140ms,background 140ms,border-color 140ms,box-shadow 140ms}
+.p-cheat-btn .dot{width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.45}
+.p-cheat-btn:hover{background:rgba(110,92,62,.08)}
+.p-cheat-btn:focus-visible{outline:2px solid var(--milestone-gold);outline-offset:3px}
+.p-cheat-btn.on{color:#3A2A0C;background:var(--milestone-gold);border-color:var(--milestone-gold);
+  box-shadow:0 0 12px rgba(255,196,77,.45)}
+.p-cheat-btn.on .dot{opacity:1;animation:cheatPulse 1s ease-in-out infinite}
+.p-foot{position:absolute;left:0;right:0;top:232px;text-align:center;font:400 12px/1.4 var(--font-ui);color:var(--text-lo)}
 
 /* ---- 结算界面（flex 纵向排版，避免绝对定位互相压叠） ---- */
 #result-screen .panel{width:720px;height:592px;background:var(--panel-bg)}
@@ -928,7 +940,7 @@ body.lab-open #app,body.lab-open #rotate{visibility:hidden}
         <button id="hud-pause" aria-label="暂停游戏" title="暂停 (Esc)">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor"/><rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor"/></svg>
         </button>
-        <button id="hud-cheat" aria-label="作弊模式（自动完美）" title="作弊模式 (F2)" aria-pressed="false"><span class="dot"></span><span>作弊</span></button>
+        <button id="hud-cheat" aria-label="作弊模式（自动完美）" title="作弊模式 (C)" aria-pressed="false"><span class="dot"></span><span>作弊</span></button>
         <button id="sound-badge" aria-label="点击开启声音"><span class="sb-i">♪</span><span class="sb-t">开启声音</span></button>
         <div id="hud-hint"></div>
       </div>
@@ -1050,7 +1062,7 @@ body.lab-open #app,body.lab-open #rotate{visibility:hidden}
                   <circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.2 5.2l2.1 2.1M16.7 16.7l2.1 2.1M18.8 5.2l-2.1 2.1M7.3 16.7l-2.1 2.1"/>
                 </svg>
               </button>
-              <button type="button" class="t-cheat" id="title-cheat" aria-label="作弊模式（自动完美）" title="作弊模式 (F2)" aria-pressed="false"><span class="dot"></span><span>作弊</span></button>
+              <button type="button" class="t-cheat" id="title-cheat" aria-label="作弊模式（自动完美）" title="作弊模式 (C)" aria-pressed="false"><span class="dot"></span><span>作弊</span></button>
               <div id="settings-drawer" aria-label="设置">
                 <div class="set-row"><label for="set-colorblind">色弱友好模式</label><input type="checkbox" id="set-colorblind"></div>
                 <div class="set-row"><label for="set-goodwin">GOOD 窗口虚线</label><input type="checkbox" id="set-goodwin"></div>
@@ -1079,7 +1091,10 @@ body.lab-open #app,body.lab-open #rotate{visibility:hidden}
                 <button type="button" class="btn btn-ghost" id="btn-restart">重新开始</button>
                 <button type="button" class="btn btn-ghost" id="btn-quit">返回标题</button>
               </div>
-              <div class="p-foot"><kbd>Esc</kbd> 或 <kbd>空格</kbd> 继续 · <kbd>R</kbd> 重新开始</div>
+              <div class="p-cheat">
+                <button type="button" class="p-cheat-btn" id="btn-pause-cheat" aria-pressed="false" title="作弊模式 (C)"><span class="dot"></span><span class="lbl">作弊模式 · 关</span></button>
+              </div>
+              <div class="p-foot"><kbd>Esc</kbd> 或 <kbd>空格</kbd> 继续 · <kbd>R</kbd> 重新开始 · <kbd>C</kbd> 作弊</div>
             </div>
           </div>
         </section>
@@ -3331,6 +3346,8 @@ function hitLane(lane,t){
   }
 }
 function resolveMiss(lane){
+  if(G.autoPerfect)cheatDiag('MISS_WHILE_CHEAT',{cursor:G.cursor,combo:G.combo,holds:G.holds.length,
+    ctx:Sound.ctx?Sound.ctx.state:'null',notes:G.notes.length});
   G.counts.miss++;G.consecutiveMiss++;
   /* §6.5-7：终章首次 MISS，若本局达成过 30 连击 → combo 降到一半 */
   /* 原来写死 (72-1)*BAR（第 72/90 小节 ≈ 全程 79%），换成按曲目比例 */
@@ -3358,14 +3375,52 @@ function resolveMiss(lane){
    —— 以音符自身节拍时间 t=n.t 调用 hitLane，判定偏差 abs=0 → 必为 PERFECT。
    复用原有判定/连击/特效/计分管线，不另起一套，保证表现与正常手打一致。
    ============================================================ */
-function setAutoPerfect(on){
+/* 作弊诊断流水：偶发「不生效」时 F12 看 [cheat] 前缀即可还原现场
+   —— 按判定顺序设计，autoPerfect 开着时出现 MISS 是不可能事件，一旦出现必定有未知触发源 */
+function cheatDiag(ev,extra){
+  if(!G.cheatLog)G.cheatLog=[];
+  const e=Object.assign({ev:ev,at:Math.round(now()),songTime:+(G.songTime||0).toFixed(3),state:G.state},extra||{});
+  G.cheatLog.push(e);
+  if(G.cheatLog.length>40)G.cheatLog.splice(0,G.cheatLog.length-40);
+  if(ev==='MISS_WHILE_CHEAT')console.warn('[cheat] 作弊开启时出现 MISS（不应发生）',JSON.stringify(e));
+  else console.debug('[cheat]',ev,JSON.stringify(e));
+}
+function setAutoPerfect(on,src){
   G.autoPerfect=!!on;
-  /* 只要在演奏/倒计时期间开启过，本局就标记为「作弊局」，结算不计入最佳记录 */
-  if(G.autoPerfect&&(G.state==='PLAYING'||G.state==='COUNTDOWN'))G.cheatRun=true;
+  cheatDiag('toggle',{to:G.autoPerfect,src:src||'?'});
+  /* 只要在演奏/倒计时/暂停期间开启过，本局就标记为「作弊局」，结算不计入最佳记录
+     （暂停也算：暂停菜单里也能开关，恢复后同一局继续） */
+  if(G.autoPerfect&&(G.state==='PLAYING'||G.state==='COUNTDOWN'||G.state==='PAUSED')){
+    /* 补救：作弊点上前几颗音符已经落过去被判 MISS（比如先点的开始、或那一击没点准），
+       开启瞬间把最近 3 秒内的 MISS 回收重判 —— 作弊局本就该全自动 PERFECT。
+       cursor 一并回退，下一帧 updateAutoPerfect 会以 abs=0 补上全部 PERFECT。 */
+    if(G.notes&&G.notes.length){
+      const from=G.songTime-3;                  /* 只回收最近 3 秒内的漏判 */
+      let rewound=-1,rescued=0;
+      for(let i=0;i<G.notes.length;i++){
+        const n=G.notes[i];
+        if(n.t<from)continue;                   /* 更早的漏判保持原样 */
+        if(n.judged&&n.kind==='miss'){
+          n.judged=false;n.kind=null;n.hitT=null;n.crack=false;
+          if(G.counts.miss>0)G.counts.miss--;
+          rescued++;
+          if(rewound<0)rewound=i;
+        }
+      }
+      if(rewound>=0&&rewound<G.cursor)G.cursor=rewound;
+      if(rescued>0)cheatDiag('rescue',{n:rescued});
+    }
+    G.cheatRun=true;
+  }
   var pressed=G.autoPerfect?'true':'false';
   ['#hud-cheat','#title-cheat'].forEach(function(sel){
     var b=$(sel);if(b){b.classList.toggle('on',G.autoPerfect);b.setAttribute('aria-pressed',pressed);}
   });
+  var pb=$('#btn-pause-cheat');
+  if(pb){
+    pb.classList.toggle('on',G.autoPerfect);pb.setAttribute('aria-pressed',pressed);
+    var lbl=pb.querySelector('.lbl');if(lbl)lbl.textContent='作弊模式 · '+(G.autoPerfect?'开':'关');
+  }
   showHint(G.autoPerfect?'作弊模式 · 已开启（本局不计入最佳记录）':'作弊模式 · 已关闭',1800);
 }
 function updateAutoPerfect(){
@@ -4425,6 +4480,7 @@ function startGame(){
     G.counts={perfect:0,good:0,miss:0};
     G.consecutiveMiss=0;G.protectUntil=-1;G.keepComboUsed=false;G.reached30=false;
     G.cheatRun=!!G.autoPerfect;   /* 开局即开作弊 → 本局为作弊局 */
+    cheatDiag('runStart',{auto:!!G.autoPerfect,diff:G.mode});
     G.held=fillArr(false);G.lastJudge=fillArr(-99);
     G.holds=[];G.holdDoneCount=0;G.autoHeld=fillArr(false);G.holdLane=fillArr(false);
     G.downKeys={};G.pointerHeld=fillArr(0);
@@ -4671,8 +4727,9 @@ window.addEventListener('keydown',function(e){
   if(document.body.classList.contains('lab-open'))return;   /* 编辑台打开时键盘归它 */
   trapFocus(e);
   const code=e.code;
-  /* 全自动完美（作弊）开关：任何状态都可切换 */
-  if(code==='F2'){e.preventDefault();if(!e.repeat)setAutoPerfect(!G.autoPerfect);return;}
+  /* 全自动完美（作弊）开关：任何状态都可切换。
+     F2 在 macOS 上默认被系统占用（亮度键，浏览器收不到），所以另配 C 键作为可靠的主快捷键 */
+  if(code==='F2'||code==='KeyC'){e.preventDefault();if(!e.repeat)setAutoPerfect(!G.autoPerfect,code==='F2'?'key:F2':'key:C');return;}
   if(G.state==='TITLE'){
     if(code==='Space'&&!e.repeat){e.preventDefault();startGame();}
     return;
@@ -4952,6 +5009,7 @@ function updateMisses(){
   const w=windowPx();
   while(G.cursor<G.notes.length){
     const n=G.notes[G.cursor];
+    if(n.judged){G.cursor++;continue;}   /* 已判定（补救回退后同帧补 PERFECT 等）绝不重复判 */
     const y=G.judgeY-(n.t-G.songTime)*G.speed;
     if(y>G.judgeY+w.g){
       n.judged=true;n.kind='miss';
@@ -5087,8 +5145,9 @@ $$('.seg3 button').forEach(function(b){
   });
 });
 $('#hud-pause').addEventListener('click',function(e){e.stopPropagation();togglePause(false);});
-$('#hud-cheat').addEventListener('click',function(e){e.stopPropagation();setAutoPerfect(!G.autoPerfect);});
-$('#title-cheat').addEventListener('click',function(e){e.stopPropagation();setAutoPerfect(!G.autoPerfect);});
+$('#hud-cheat').addEventListener('click',function(e){e.stopPropagation();setAutoPerfect(!G.autoPerfect,'btn:hud');});
+$('#title-cheat').addEventListener('click',function(e){e.stopPropagation();setAutoPerfect(!G.autoPerfect,'btn:title');});
+$('#btn-pause-cheat').addEventListener('click',function(e){e.stopPropagation();setAutoPerfect(!G.autoPerfect,'btn:pause');});
 $('#btn-resume').addEventListener('click',function(){togglePause(false);});
 $('#btn-restart').addEventListener('click',function(){confirmBtn(this,function(){startGame();});});
 $('#btn-quit').addEventListener('click',function(){confirmBtn(this,function(){toTitle();});});
